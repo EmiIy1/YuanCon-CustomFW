@@ -1,14 +1,12 @@
-#include <Arduino.h>
-#include <HID-Project.h>
-
 #include "buttons.h"
+#include "persist.h"
 #include "pins.h"
 #include "vol.h"
 
 void do_keyboard() {
     for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
-        if (posedge_buttons & (1 << i)) NKROKeyboard.press(PinConf::keymap[i]);
-        if (negedge_buttons & (1 << i)) NKROKeyboard.release(PinConf::keymap[i]);
+        if (posedge_buttons & (1 << i)) NKROKeyboard.press(con_state.keymap[i]);
+        if (negedge_buttons & (1 << i)) NKROKeyboard.release(con_state.keymap[i]);
     }
 }
 
@@ -36,6 +34,4 @@ void do_joystick(bool absolute) {
         if (posedge_buttons & (1 << i)) Gamepad.press(PinConf::gamepad_map[i]);
         if (negedge_buttons & (1 << i)) Gamepad.release(PinConf::gamepad_map[i]);
     }
-
-    Gamepad.write();
 }

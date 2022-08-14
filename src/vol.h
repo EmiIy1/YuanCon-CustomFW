@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include <vendor.h>
 
 extern volatile uint16_t vol_x, vol_y;
 extern volatile int8_t vol_delta_x, vol_delta_y;

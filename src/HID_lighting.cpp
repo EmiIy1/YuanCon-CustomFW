@@ -1,7 +1,5 @@
 #include "HID_lighting.h"
 
-#include <Arduino.h>
-
 led_data_t hid_led_data;
 bool hid_dirty = false;
 unsigned long last_hid = 0;

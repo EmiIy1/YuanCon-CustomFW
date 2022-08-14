@@ -2,6 +2,7 @@
 
 #include "HID_lighting.h"
 #include "buttons.h"
+#include "persist.h"
 #include "pins.h"
 #include "vol.h"
 
@@ -11,9 +12,6 @@ CRGB wing_rgb_l_leds[PinConf::wing_rgb_count];
 CRGB wing_rgb_r_leds[PinConf::wing_rgb_count];
 CRGB start_rgb_l_leds[PinConf::start_rgb_count];
 CRGB start_rgb_r_leds[PinConf::start_rgb_count];
-
-CHSV led_solid_l = { 0, 255, 255 };
-CHSV led_solid_r = { 0, 255, 255 };
 
 led_mode_config_t builtin_modes[] = {
     // Official Yuan modes
@@ -42,7 +40,6 @@ led_mode_config_t builtin_modes[] = {
         led_button_mode_live,
     },
 };
-led_mode_config_t led_mode = builtin_modes[0];
 
 led_mode_config_t* led_quick_dial[4] = {
     &builtin_modes[0],
@@ -50,8 +47,6 @@ led_mode_config_t* led_quick_dial[4] = {
     &builtin_modes[2],
     &builtin_modes[3],
 };
-
-bool auto_hid = true;
 
 void blank_led() {
     for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
@@ -200,14 +195,14 @@ uint8_t led_animation_frame = 0;
 void do_wing_leds() {
     if (LED_has_colour() && buttons & KeyMap::led_colour) {
         for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
-            wing_rgb_l_leds[i] = led_solid_l;
-            wing_rgb_r_leds[i] = led_solid_r;
+            wing_rgb_l_leds[i] = con_state.led_solid_l;
+            wing_rgb_r_leds[i] = con_state.led_solid_r;
         }
         return;
     }
 
-    led_wing_mode_t mode = led_mode.wing;
-    if (auto_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
+    led_wing_mode_t mode = con_state.led_mode.wing;
+    if (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
         mode = led_wing_mode_hid;
     }
 
@@ -259,8 +254,8 @@ void do_wing_leds() {
             break;
         case led_wing_mode_colour:
             for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
-                wing_rgb_l_leds[i] = led_solid_l;
-                wing_rgb_r_leds[i] = led_solid_r;
+                wing_rgb_l_leds[i] = con_state.led_solid_l;
+                wing_rgb_r_leds[i] = con_state.led_solid_r;
             }
             break;
         default:
@@ -269,8 +264,8 @@ void do_wing_leds() {
 }
 
 void do_start_leds() {
-    led_start_mode_t mode = led_mode.start;
-    if (auto_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
+    led_start_mode_t mode = con_state.led_mode.start;
+    if (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
         mode = led_start_mode_hid;
     }
 
@@ -287,8 +282,8 @@ void do_start_leds() {
             break;
         case led_start_mode_colour:
             for (uint8_t i = 0; i < PinConf::start_rgb_count; i++) {
-                start_rgb_l_leds[i] = led_solid_l;
-                start_rgb_r_leds[i] = led_solid_r;
+                start_rgb_l_leds[i] = con_state.led_solid_l;
+                start_rgb_r_leds[i] = con_state.led_solid_r;
             }
             break;
         case led_start_mode_hid:
@@ -330,7 +325,7 @@ void do_laser_leds() {
 
     vol_x_dir_led = vol_y_dir_led = 0;
 
-    switch (led_mode.lasers) {
+    switch (con_state.led_mode.lasers) {
         case led_laser_mode_white:
             render_led_shoot_start(l_shoot_start, CHSV(0, 0, 255));
             render_led_shoot_start(r_shoot_start, CHSV(0, 0, 255));
@@ -338,10 +333,10 @@ void do_laser_leds() {
             render_led_shoot_wing(r_shoot_wing, CHSV(0, 0, 255), wing_rgb_r_leds);
             break;
         case led_laser_mode_colour:
-            render_led_shoot_start(l_shoot_start, led_solid_l);
-            render_led_shoot_start(r_shoot_start, led_solid_r);
-            render_led_shoot_wing(l_shoot_wing, led_solid_l, wing_rgb_l_leds);
-            render_led_shoot_wing(r_shoot_wing, led_solid_r, wing_rgb_r_leds);
+            render_led_shoot_start(l_shoot_start, con_state.led_solid_l);
+            render_led_shoot_start(r_shoot_start, con_state.led_solid_r);
+            render_led_shoot_wing(l_shoot_wing, con_state.led_solid_l, wing_rgb_l_leds);
+            render_led_shoot_wing(r_shoot_wing, con_state.led_solid_r, wing_rgb_r_leds);
             break;
         default:
             break;
@@ -358,8 +353,8 @@ void do_laser_leds() {
 void do_button_leds() {
     button_leds = 0;
 
-    led_button_mode_t mode = led_mode.buttons;
-    if (auto_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
+    led_button_mode_t mode = con_state.led_mode.buttons;
+    if (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
         mode = led_button_mode_mixed;
     }
 

@@ -1,4 +1,5 @@
-#include <Arduino.h>
+#pragma once
+#include <vendor.h>
 
 #define len(x) (sizeof(x) / sizeof(x)[0])
 
@@ -35,7 +36,6 @@ constexpr uint16_t EX_2 = 256;
 constexpr uint16_t EX_3 = 512;
 
 constexpr button_pins_t buttons[] = { bt_a, bt_b, bt_c, bt_d, fx_l, fx_r, start, ex_1, ex_2, ex_3 };
-constexpr char keymap[] = { 'd', 'f', 'j', 'k', 'v', 'n', 't', 'q', 'a', 'z' };
 constexpr uint8_t gamepad_map[] = { 1, 2, 3, 4, 5, 6, 9, 10, 8, 7 };
 
 typedef struct {

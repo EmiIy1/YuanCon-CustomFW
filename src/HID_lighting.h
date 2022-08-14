@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include <vendor.h>
 
 #include "HID-Settings.h"
 #include "HID.h"
