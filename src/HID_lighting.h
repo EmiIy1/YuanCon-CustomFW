@@ -20,6 +20,8 @@ constexpr uint8_t NUMBER_OF_SINGLE = 7;
 constexpr uint8_t NUMBER_OF_RGB = 5;  // four wing + woofer
 
 extern bool hid_dirty;
+extern unsigned long last_hid;
+constexpr unsigned long AUTO_HID_TIMEOUT = 3000;  // 3 seconds
 
 void light_update(SingleLED* single_leds, RGBLed* rgb_leds);
 

@@ -4,6 +4,7 @@
 
 led_data_t hid_led_data;
 bool hid_dirty = false;
+unsigned long last_hid = 0;
 
 static const uint8_t PROGMEM _hidReportLEDs[] = {
     0x05, 0x01,  // USAGE_PAGE (Generic Desktop)
@@ -63,6 +64,7 @@ bool HIDLED_::setup(USBSetup& setup) {
         if (request == HID_SET_REPORT) {
             if (setup.wValueH == HID_REPORT_TYPE_OUTPUT && setup.wLength == NUMBER_OF_LIGHTS) {
                 USBDevice.recvControl(hid_led_data.raw, NUMBER_OF_LIGHTS);
+                last_hid = millis();
                 hid_dirty = true;
                 return true;
             }

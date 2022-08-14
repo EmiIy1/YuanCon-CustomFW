@@ -64,9 +64,18 @@ constexpr uint8_t start_rgb_count = 16;
 
 }  // namespace PinConf
 
-namespace PinMap {
+namespace KeyMap {
 constexpr uint16_t led_mode = PinConf::EX_1;
 constexpr uint16_t led_colour = PinConf::EX_2;
 
+// Holding KeyMap::led_mode is a required pre-requisite for these
+constexpr uint16_t change_wing = PinConf::BT_A;
+constexpr uint16_t change_start = PinConf::BT_B;
+constexpr uint16_t change_buttons = PinConf::BT_C;
+constexpr uint16_t change_lasers = PinConf::BT_D;
+constexpr uint16_t toggle_auto_hid = PinConf::FX_R;
+
 constexpr uint16_t led_reset = PinConf::EX_1 | PinConf::EX_2 | PinConf::BT_B | PinConf::BT_C;
-}  // namespace PinMap
+
+constexpr uint16_t macro_key = PinConf::EX_3;
+}  // namespace KeyMap

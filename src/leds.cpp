@@ -51,6 +51,8 @@ led_mode_config_t* led_quick_dial[4] = {
     &builtin_modes[3],
 };
 
+bool auto_hid = true;
+
 void blank_led() {
     for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
         wing_rgb_l_leds[i] = CRGB(0, 0, 0);
@@ -196,7 +198,7 @@ void do_hid_leds() {
 
 uint8_t led_animation_frame = 0;
 void do_wing_leds() {
-    if (LED_has_colour() && buttons & PinMap::led_colour) {
+    if (LED_has_colour() && buttons & KeyMap::led_colour) {
         for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
             wing_rgb_l_leds[i] = led_solid_l;
             wing_rgb_r_leds[i] = led_solid_r;
@@ -204,7 +206,12 @@ void do_wing_leds() {
         return;
     }
 
-    switch (led_mode.wing) {
+    led_wing_mode_t mode = led_mode.wing;
+    if (auto_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
+        mode = led_wing_mode_hid;
+    }
+
+    switch (mode) {
         case led_wing_mode_hid:
 #ifdef POWER_SAVE_BRIGHTNESS
             for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
@@ -262,7 +269,12 @@ void do_wing_leds() {
 }
 
 void do_start_leds() {
-    switch (led_mode.start) {
+    led_start_mode_t mode = led_mode.start;
+    if (auto_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
+        mode = led_start_mode_hid;
+    }
+
+    switch (mode) {
         case led_start_mode_rainbow:
             for (uint8_t i = 0; i < PinConf::start_rgb_count; i++) {
                 start_rgb_l_leds[i] =
@@ -346,7 +358,12 @@ void do_laser_leds() {
 void do_button_leds() {
     button_leds = 0;
 
-    switch (led_mode.buttons) {
+    led_button_mode_t mode = led_mode.buttons;
+    if (auto_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
+        mode = led_button_mode_mixed;
+    }
+
+    switch (mode) {
         case led_button_mode_live:
             for (uint8_t i = 0; i < len(hid_led_data.leds.singles); i++) {
                 button_leds |= buttons & (1 << i);
@@ -380,13 +397,15 @@ void write_button_leds() {
 void do_leds() {
     static uint8_t tick = 0;
 
-    if ((++tick) == 8) {
+    if ((++tick) == 10) {
         tick = 0;
 
         blank_led();
         do_wing_leds();
         do_start_leds();
         do_laser_leds();
+        // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that this call is unreasonably
+        // ! espensive.
         FastLED.show();
 
         led_animation_frame += 3;

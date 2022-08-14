@@ -25,6 +25,7 @@ void setup() {
     setup_vol();
     setup_leds();
 
+    Consumer.begin();
     NKROKeyboard.begin();
     Mouse.begin();
     Gamepad.begin();
@@ -108,9 +109,9 @@ void handle_ex_buttons() {
 
     if ((++blink_tick) == 512) blink_tick = 0;
 
-    if (buttons == PinMap::led_reset) {
+    if (buttons == KeyMap::led_reset) {
         memcpy(&led_mode, &builtin_modes[0], sizeof led_mode);
-    } else if (buttons & PinMap::led_mode) {
+    } else if (buttons & KeyMap::led_mode) {
         button_leds = 0;
 
         if (buttons & PinConf::FX_L && buttons & PinConf::FX_R) {
@@ -136,22 +137,33 @@ void handle_ex_buttons() {
                 Gamepad.write();
             }
         } else {
-            if (posedge_buttons & PinConf::BT_A) {
+            if (posedge_buttons & KeyMap::change_wing) {
                 if ((++*((uint8_t*)&led_mode.wing)) == _no_led_wing_modes)
                     led_mode.wing = (led_wing_mode_t)0;
             }
-            if (posedge_buttons & PinConf::BT_B) {
+            if (posedge_buttons & KeyMap::change_start) {
                 if ((++*((uint8_t*)&led_mode.start)) == _no_led_start_modes)
                     led_mode.start = (led_start_mode_t)0;
             }
-            if (posedge_buttons & PinConf::BT_C) {
+            if (posedge_buttons & KeyMap::change_buttons) {
                 if ((++*((uint8_t*)&led_mode.buttons)) == _no_led_button_modes)
                     led_mode.buttons = (led_button_mode_t)0;
             }
-            if (posedge_buttons & PinConf::BT_D) {
+            if (posedge_buttons & KeyMap::change_lasers) {
                 if ((++*((uint8_t*)&led_mode.lasers)) == _no_led_laser_modes)
                     led_mode.lasers = (led_laser_mode_t)0;
             }
+
+            if (posedge_buttons & KeyMap::toggle_auto_hid) {
+                auto_hid = !auto_hid;
+            }
+
+            if (buttons & KeyMap::change_wing) button_leds |= (1 << led_mode.wing);
+            if (buttons & KeyMap::change_start) button_leds |= (1 << led_mode.start);
+            if (buttons & KeyMap::change_buttons) button_leds |= (1 << led_mode.buttons);
+            if (buttons & KeyMap::change_lasers) button_leds |= (1 << led_mode.lasers);
+
+            if (auto_hid) button_leds |= KeyMap::toggle_auto_hid;
         }
     }
 
@@ -160,20 +172,62 @@ void handle_ex_buttons() {
     if ((++led_change_tick) == 1) {
         led_change_tick = 0;
 
-        if (!(buttons & PinMap::led_mode) && buttons & PinMap::led_colour && LED_has_colour()) {
+        if (!(buttons & KeyMap::led_mode) && buttons & KeyMap::led_colour && LED_has_colour()) {
             led_solid_l.h += vol_x_dir;
             led_solid_r.h += vol_y_dir;
         }
     }
 }
 
+void handle_macro_keys() {
+    // TODO: Easy user-definable macros
+
+    // Light up the buttons that have macros assigned
+    button_leds = PinConf::BT_A | PinConf::BT_B;
+
+    if (posedge_buttons & PinConf::BT_A) {
+        NKROKeyboard.press(KEYPAD_ADD);
+        delay(100);
+        NKROKeyboard.release(KEYPAD_ADD);
+    }
+    if (posedge_buttons & PinConf::BT_B) {
+        NKROKeyboard.press(KEYPAD_1);
+        delay(100);
+        NKROKeyboard.release(KEYPAD_1);
+        delay(100);
+        NKROKeyboard.press(KEYPAD_2);
+        delay(100);
+        NKROKeyboard.release(KEYPAD_2);
+        delay(100);
+        NKROKeyboard.press(KEYPAD_3);
+        delay(100);
+        NKROKeyboard.release(KEYPAD_3);
+        delay(100);
+        NKROKeyboard.press(KEYPAD_4);
+        delay(100);
+        NKROKeyboard.release(KEYPAD_4);
+    }
+
+    // Decrease sens by a lot
+    static uint8_t tick = 0;
+    if ((++tick) == 32) {
+        tick = 0;
+        if (vol_x_dir < 0) Consumer.write(MEDIA_VOLUME_DOWN);
+        if (vol_x_dir > 0) Consumer.write(MEDIA_VOLUME_UP);
+    }
+}
+
 void loop() {
+    static auto last_tick = micros();
     // static uint16_t tick = 0;
 
     read_buttons();
     do_leds();
 
     handle_ex_buttons();
+    if (buttons & KeyMap::macro_key) {
+        handle_macro_keys();
+    }
 
     vol_x_dir_led = vol_x_dir;
     vol_y_dir_led = vol_y_dir;
@@ -199,5 +253,12 @@ void loop() {
 
     write_button_leds();
 
-    delayMicroseconds(1000);
+    auto now = micros();
+    auto delta = now - last_tick;
+    if (delta < 1000) {
+        delayMicroseconds(1000 - delta);
+    } else {
+        // TODO: figure out some way to report the number of dropped cycles
+    }
+    last_tick = now;
 }

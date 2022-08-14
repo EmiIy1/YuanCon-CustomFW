@@ -48,6 +48,8 @@ extern CHSV led_solid_r;
 
 extern uint16_t button_leds;
 
+extern bool auto_hid;
+
 void setup_leds();
 void do_leds();
 void write_button_leds();
