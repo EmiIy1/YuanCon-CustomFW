@@ -1,5 +1,7 @@
 #include "buttons.h"
 
+#include "HID_lighting.h"
+
 #include "pins.h"
 
 // Debounce is performed by taking an average over this window
@@ -36,10 +38,4 @@ void read_buttons() {
     posedge_buttons = new_buttons & ~buttons;
     negedge_buttons = buttons & ~new_buttons;
     buttons = new_buttons;
-}
-
-void write_button_leds() {
-    for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
-        digitalWrite(PinConf::buttons[i].led, buttons & (1 << i));
-    }
 }

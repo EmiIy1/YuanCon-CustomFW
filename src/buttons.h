@@ -6,4 +6,3 @@ extern uint16_t posedge_buttons;
 extern uint16_t negedge_buttons;
 
 void read_buttons();
-void write_button_leds();

@@ -49,12 +49,13 @@ constexpr knob_pins_t vol_y = { 3, 4 };
 
 constexpr pin_size_t wing_rgb_l = 38;
 constexpr pin_size_t wing_rgb_r = 11;
-// 0-17 = bottom half
+// [0:17] = bottom half
 // order: -> fx -> edge ->
-constexpr uint8_t wing_rgb_lower = 18;
-// 18-28 = top half
+constexpr uint8_t wing_rgb_lower = 17;
+// [17:29] = top half
 // order: -> edge -> bt ->
-constexpr uint8_t wing_rgb_count = 29;
+constexpr uint8_t wing_rgb_upper = 12;
+constexpr uint8_t wing_rgb_count = wing_rgb_lower + wing_rgb_upper;
 
 constexpr pin_size_t start_rgb_l = 22;
 constexpr pin_size_t start_rgb_r = 37;
@@ -62,3 +63,10 @@ constexpr pin_size_t start_rgb_r = 37;
 constexpr uint8_t start_rgb_count = 16;
 
 }  // namespace PinConf
+
+namespace PinMap {
+constexpr uint16_t led_mode = PinConf::EX_1;
+constexpr uint16_t led_colour = PinConf::EX_2;
+
+constexpr uint16_t led_reset = PinConf::EX_1 | PinConf::EX_2 | PinConf::BT_B | PinConf::BT_C;
+}  // namespace PinMap
