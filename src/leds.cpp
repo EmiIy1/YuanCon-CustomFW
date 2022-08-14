@@ -277,10 +277,10 @@ void do_start_leds() {
     switch (mode) {
         case led_start_mode_rainbow:
             for (uint8_t i = 0; i < PinConf::start_rgb_count; i++) {
-                start_rgb_l_leds[i] =
+                start_rgb_l_leds[PinConf::start_rgb_count - i - 1] =
                     CHSV(led_animation_frame + i * (256 / ((float)(PinConf::start_rgb_count))), 255,
                          255);
-                start_rgb_r_leds[i] =
+                start_rgb_r_leds[PinConf::start_rgb_count - i - 1] =
                     CHSV(led_animation_frame + i * (256 / ((float)(PinConf::start_rgb_count))), 255,
                          255);
             }
@@ -395,20 +395,15 @@ void write_button_leds() {
 }
 
 void do_leds() {
-    static uint8_t tick = 0;
+    blank_led();
+    do_wing_leds();
+    do_start_leds();
+    do_laser_leds();
+    // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that this call is unreasonably
+    // ! espensive.
+    FastLED.show();
 
-    if ((++tick) == 10) {
-        tick = 0;
+    led_animation_frame += 3;
 
-        blank_led();
-        do_wing_leds();
-        do_start_leds();
-        do_laser_leds();
-        // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that this call is unreasonably
-        // ! espensive.
-        FastLED.show();
-
-        led_animation_frame += 3;
-    }
     do_button_leds();
 }

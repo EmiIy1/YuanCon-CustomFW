@@ -2,10 +2,15 @@
 #include <HID-Project.h>
 
 #include "HID_lighting.h"
+#include "SAMDTimerInterrupt.h"
+#include "SAMD_ISR_Timer.h"
 #include "buttons.h"
+#include "kdb_mouse_joy.h"
 #include "leds.h"
 #include "pins.h"
 #include "vol.h"
+
+SAMDTimer ITimer(TIMER_TC3);
 
 typedef enum : uint8_t {
     con_mode_kb_mouse_constant = 0,
@@ -15,6 +20,29 @@ typedef enum : uint8_t {
     _no_con_modes,
 } con_mode_t;
 con_mode_t con_mode = con_mode_kb_mouse_constant;
+
+void timer_1000us() {
+    read_buttons();
+    vol_x_dir_led = vol_x_dir;
+    vol_y_dir_led = vol_y_dir;
+
+    switch (con_mode) {
+        case con_mode_kb_mouse_constant:
+            do_keyboard();
+            do_mouse();
+            break;
+        case con_mode_joystick_position:
+            do_joystick(true);
+            break;
+        case con_mode_joystick_direction:
+            do_joystick(false);
+            break;
+        default:
+            break;
+    }
+
+    write_button_leds();
+}
 
 void setup() {
     for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
@@ -30,78 +58,8 @@ void setup() {
     Mouse.begin();
     Gamepad.begin();
     HIDLeds.begin();
-}
 
-void do_keyboard() {
-    for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
-        if (posedge_buttons & (1 << i)) NKROKeyboard.press(PinConf::keymap[i]);
-        if (negedge_buttons & (1 << i)) NKROKeyboard.release(PinConf::keymap[i]);
-    }
-}
-
-void do_mouse(bool mouse_accel) {
-    // static float accel_x = 0;
-    // static float accel_y = 0;
-    // constexpr float accel_max = 10.0;
-
-    static uint16_t last_x = 0, last_y = 0;
-    static unsigned long last_tick = 0;
-
-    int8_t move_x = vol_x_dir, move_y = vol_y_dir;
-    vol_x_dir = vol_y_dir = 0;
-
-    if (mouse_accel) {
-        unsigned long now = millis();
-        auto dt = now - last_tick;
-
-        if (last_tick != 0) {
-            uint16_t dx = vol_x - last_x;
-            uint16_t dy = vol_y - last_y;
-        }
-        last_x = vol_x;
-        last_y = vol_y;
-
-        last_tick = now;
-
-        // if (move_x) {
-        //     if (accel_x < accel_max) accel_x += 0.075;
-        // } else if (accel_x > 1.0)
-        //     accel_x -= 0.5;
-        // else
-        //     accel_x = 1.0;
-
-        // if (move_y) {
-        //     if (accel_y < accel_max) accel_y += 0.075;
-        // } else if (accel_y > 1.0)
-        //     accel_y -= 0.5;
-        // else
-        //     accel_y = 1.0;
-
-        // if (move_x) move_x *= accel_x;
-        // if (move_y) move_y *= accel_y;
-    }
-
-    if (move_x || move_y) Mouse.move(move_x, move_y);
-}
-
-constexpr uint8_t axis_speed = 75;
-void do_joystick(bool absolute) {
-    if (absolute) {
-        Gamepad.xAxis(vol_x * axis_speed);
-        Gamepad.yAxis(vol_y * axis_speed);
-    } else {
-        Gamepad.xAxis(vol_x_dir > 0 ? 0x7fff : vol_x_dir < 0 ? -0x8000 : 0);
-        Gamepad.yAxis(vol_y_dir > 0 ? 0x7fff : vol_y_dir < 0 ? -0x8000 : 0);
-    }
-
-    vol_x_dir = vol_y_dir = 0;
-
-    for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
-        if (posedge_buttons & (1 << i)) Gamepad.press(PinConf::gamepad_map[i]);
-        if (negedge_buttons & (1 << i)) Gamepad.release(PinConf::gamepad_map[i]);
-    }
-
-    Gamepad.write();
+    ITimer.attachInterruptInterval_MS(1, timer_1000us);
 }
 
 void handle_ex_buttons() {
@@ -210,7 +168,7 @@ void handle_macro_keys() {
 
     // Decrease sens by a lot
     static uint8_t tick = 0;
-    if ((++tick) == 32) {
+    if ((++tick) == 20) {
         tick = 0;
         if (vol_x_dir < 0) Consumer.write(MEDIA_VOLUME_DOWN);
         if (vol_x_dir > 0) Consumer.write(MEDIA_VOLUME_UP);
@@ -218,47 +176,13 @@ void handle_macro_keys() {
 }
 
 void loop() {
-    static auto last_tick = micros();
-    // static uint16_t tick = 0;
-
-    read_buttons();
-    do_leds();
-
     handle_ex_buttons();
     if (buttons & KeyMap::macro_key) {
         handle_macro_keys();
     }
+    do_leds();
 
-    vol_x_dir_led = vol_x_dir;
-    vol_y_dir_led = vol_y_dir;
-
-    switch (con_mode) {
-        case con_mode_kb_mouse_constant:
-            do_keyboard();
-            do_mouse(false);
-            break;
-        case con_mode_kb_mouse_accel:
-            do_keyboard();
-            do_mouse(true);
-            break;
-        case con_mode_joystick_position:
-            do_joystick(true);
-            break;
-        case con_mode_joystick_direction:
-            do_joystick(false);
-            break;
-        default:
-            break;
-    }
-
-    write_button_leds();
-
-    auto now = micros();
-    auto delta = now - last_tick;
-    if (delta < 1000) {
-        delayMicroseconds(1000 - delta);
-    } else {
-        // TODO: figure out some way to report the number of dropped cycles
-    }
-    last_tick = now;
+    // LEDs aren't timing critical, so we can just whack a delay here and consider it a case of
+    // "they'll render when they render".
+    delay(25);
 }
