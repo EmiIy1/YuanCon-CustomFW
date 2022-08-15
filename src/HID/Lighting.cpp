@@ -31,9 +31,58 @@ static const uint8_t _hidReportLEDs[] PROGMEM = {
     HID_END_COLLECTION(APPLICATION),
 };
 
+// Spoofed SDVX Pico for USC
+constexpr uint8_t PicoNoSingle = 7;
+constexpr uint8_t PicoNoRGB = 2;
+constexpr uint8_t PicoNoLED = PicoNoSingle + (PicoNoRGB * 3);
+static const uint8_t _hidReportLEDsPico[] PROGMEM = {
+    HID_USAGE_PAGE(GENERIC_DESKTOP),
+    HID_USAGE(UNDEFINED),
+    HID_COLLECTION(APPLICATION),
+    HID_REPORT_ID(HID_REPORTID_PICO_LEDS),
+
+    HID_REPORT_COUNT(PicoNoLED),
+    HID_REPORT_SIZE(8),
+    HID_LOGICAL_MINIMUM(1, 0),
+    HID_LOGICAL_MAXIMUM(2, 255),
+    HID_USAGE_PAGE(ORDINAL),
+    HID_USAGE_MINIMUM(1, 1),
+    HID_USAGE_MAXIMUM(1, PicoNoLED),
+    HID_OUTPUT(DATA, VARIABLE, ABSOLUTE),
+
+    // BTools needs at least 1 input to work properly
+    HID_USAGE_MINIMUM(1, 1),
+    HID_USAGE_MAXIMUM(1, 1),
+    HID_INPUT(CONSTANT, VARIABLE, ABSOLUTE),
+    HID_END_COLLECTION(APPLICATION),
+};
+
 bool leds_callback(uint16_t length) {
     if (length != NUMBER_OF_LIGHTS + 1) return false;
     USBDevice.recvControl(&hid_led_data, NUMBER_OF_LIGHTS);
+    last_hid = millis();
+    hid_dirty = true;
+
+    return true;
+}
+
+typedef struct {
+    uint8_t report_id;
+    uint8_t bta, btb, btc, btd, fxl, fxr, st;
+    CRGB left;
+    CRGB right;
+} pocketPicoReport;
+bool pico_callback(uint16_t length) {
+    if (length != PicoNoLED + 1) return false;
+    pocketPicoReport report;
+    USBDevice.recvControl(&report, NUMBER_OF_LIGHTS);
+    memcpy(hid_led_data.leds.singles, &(report.bta), PicoNoSingle);
+    memcpy(hid_led_data.leds.rgb[0].raw, &(report.left), 3);
+    memcpy(hid_led_data.leds.rgb[1].raw, &(report.right), 3);
+    memcpy(hid_led_data.leds.rgb[2].raw, &(report.left), 3);
+    memcpy(hid_led_data.leds.rgb[3].raw, &(report.right), 3);
+    memset(hid_led_data.leds.rgb[4].raw, 0, 3);
+
     last_hid = millis();
     hid_dirty = true;
 
@@ -46,6 +95,11 @@ HIDLeds_::HIDLeds_(void) {
 
     CustomHID().AppendDescriptor(&node);
     CustomHID().AppendCallback(&callback);
+
+    static HIDSubDescriptor nodePico(_hidReportLEDsPico, sizeof(_hidReportLEDsPico));
+    static HIDCallback callbackPico = { &pico_callback, HID_REPORTID_PICO_LEDS, NULL };
+    CustomHID().AppendDescriptor(&nodePico);
+    CustomHID().AppendCallback(&callbackPico);
 }
 void HIDLeds_::begin(void) { return; }
 
