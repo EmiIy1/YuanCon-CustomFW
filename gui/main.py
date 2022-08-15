@@ -1,4 +1,5 @@
 import struct
+from typing import List
 from dataclasses import dataclass
 
 import tkinter as tk
@@ -33,13 +34,13 @@ def find_yuan_port():
 class ConInfo:
     _FORMAT = "5B3B3B3B3B3B3BBBB10B"
 
-    led_mode: list[int]
-    led_solid_l: list[list[int]]
-    led_solid_r: list[list[int]]
+    led_mode: List[int]
+    led_solid_l: List[List[int]]
+    led_solid_r: List[List[int]]
     auto_hid: bool
     reactive_buttons: bool
     con_mode: int
-    keymap: list[int]
+    keymap: List[int]
 
 
 class Modal(tk.Toplevel):
