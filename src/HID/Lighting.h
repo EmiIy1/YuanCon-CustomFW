@@ -1,7 +1,7 @@
-#include <vendor.h>
+#pragma once
 
-#include "HID-Settings.h"
-#include "HID.h"
+#include <HID.h>
+#include <vendor.h>
 
 typedef struct {
     uint8_t brightness;
@@ -30,24 +30,22 @@ void light_update(SingleLED* single_leds, RGBLed* rgb_leds);
 #error You must have less than 64 lights
 #endif
 
-typedef union {
-    struct {
-        SingleLED singles[NUMBER_OF_SINGLE];
-        RGBLed rgb[NUMBER_OF_RGB];
-    } leds;
-    uint8_t raw[NUMBER_OF_LIGHTS];
-} led_data_t;
-extern led_data_t hid_led_data;
+typedef struct {
+    uint8_t report_id;
+    union {
+        struct {
+            SingleLED singles[NUMBER_OF_SINGLE];
+            RGBLed rgb[NUMBER_OF_RGB];
+        } leds;
+        uint8_t raw[NUMBER_OF_LIGHTS];
+    };
+} HID_LedsReport_Data_t;
+extern HID_LedsReport_Data_t hid_led_data;
 
-class HIDLED_ : public PluggableUSBModule {
-    EPTYPE_DESCRIPTOR_SIZE epType[1];
-
+class HIDLeds_ {
    public:
-    HIDLED_(void);
+    HIDLeds_(void);
     void begin(void);
-    int getInterface(uint8_t* interfaceCount);
-    int getDescriptor(USBSetup& setup);
-    bool setup(USBSetup& setup);
 };
 
-extern HIDLED_ HIDLeds;
+extern HIDLeds_ HIDLeds;

@@ -1,37 +1,25 @@
 #include "buttons.h"
 
-#include "HID_lighting.h"
-
+#include "HID/Lighting.h"
 #include "pins.h"
 
-// Debounce is performed by taking an average over this window
-// Therefore, latency is ((len(debounce) / 2) * loop_time)ms -> 8ms
-uint16_t debounce[16];
+unsigned long debounce[len(PinConf::buttons)];
+constexpr unsigned long debounce_time = 30000;  // us = 3ms
 uint16_t buttons;
 uint16_t posedge_buttons;
 uint16_t negedge_buttons;
 
 void read_buttons() {
-    // Read buttons
+    auto now = micros();
     uint16_t new_buttons = 0;
     for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
-        if (!digitalRead(PinConf::buttons[i].btn)) new_buttons |= 1 << i;
-    }
-
-    // Propagate debouncing
-    for (uint8_t i = 1; i < len(debounce); i++) {
-        debounce[i] = debounce[i - 1];
-    }
-    debounce[0] = new_buttons;
-
-    // Calulcate majorities
-    uint16_t debounced_buttons = 0;
-    for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
-        uint8_t sum = 0;
-        for (uint8_t j = 0; j < len(debounce); j++) {
-            if (debounce[j] & (1 << i)) sum++;
+        if (digitalRead(PinConf::buttons[i].btn)) {
+            if (now - debounce[i] > debounce_time) debounce[i] = 0;
+        } else {
+            debounce[i] = micros();
         }
-        if (sum >= len(debounce) / 2) debounced_buttons |= (1 << i);
+
+        if (debounce[i]) new_buttons |= (1 << i);
     }
 
     // Update global state

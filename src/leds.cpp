@@ -1,6 +1,6 @@
 #include "leds.h"
 
-#include "HID_lighting.h"
+#include "HID/Lighting.h"
 #include "buttons.h"
 #include "persist.h"
 #include "pins.h"
@@ -8,8 +8,15 @@
 
 uint16_t button_leds;
 
-CRGB wing_rgb_l_leds[PinConf::wing_rgb_count];
-CRGB wing_rgb_r_leds[PinConf::wing_rgb_count];
+typedef union {
+    CRGB leds[PinConf::wing_rgb_count];
+    struct {
+        CRGB bottom[PinConf::wing_rgb_lower];
+        CRGB top[PinConf::wing_rgb_upper];
+    };
+} wing_leds_t;
+wing_leds_t wing_rgb_l_leds;
+wing_leds_t wing_rgb_r_leds;
 CRGB start_rgb_l_leds[PinConf::start_rgb_count];
 CRGB start_rgb_r_leds[PinConf::start_rgb_count];
 
@@ -50,38 +57,12 @@ led_mode_config_t* led_quick_dial[4] = {
 
 void blank_led() {
     for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
-        wing_rgb_l_leds[i] = CRGB(0, 0, 0);
-        wing_rgb_r_leds[i] = CRGB(0, 0, 0);
+        wing_rgb_l_leds.leds[i] = CRGB(0, 0, 0);
+        wing_rgb_r_leds.leds[i] = CRGB(0, 0, 0);
     }
     for (uint8_t i = 0; i < PinConf::start_rgb_count; i++) {
         start_rgb_l_leds[i] = CRGB(0, 0, 0);
         start_rgb_r_leds[i] = CRGB(0, 0, 0);
-    }
-}
-
-void do_race(uint8_t* race, uint8_t* dir, CRGB colour) {
-    if (*race < PinConf::wing_rgb_count) {
-        wing_rgb_l_leds[*race] = colour;
-    } else if (*race < PinConf::wing_rgb_count + PinConf::start_rgb_count) {
-        start_rgb_l_leds[PinConf::start_rgb_count - (*race - PinConf::wing_rgb_count) - 1] = colour;
-    } else if (*race < PinConf::wing_rgb_count + PinConf::start_rgb_count * 2) {
-        start_rgb_r_leds[*race - (PinConf::wing_rgb_count + PinConf::start_rgb_count)] = colour;
-    } else {
-        wing_rgb_r_leds[PinConf::wing_rgb_count -
-                        (*race - (PinConf::wing_rgb_count + PinConf::start_rgb_count * 2)) - 1] =
-            colour;
-    }
-
-    if (*dir == 0) {
-        if ((++(*race)) == (PinConf::wing_rgb_count + PinConf::start_rgb_count) * 2) {
-            *dir = 1;
-            (*race)--;
-        }
-    } else {
-        if (((*race)--) == 0) {
-            *dir = 0;
-            (*race)++;
-        }
     }
 }
 
@@ -105,18 +86,17 @@ void render_led_shoot_start(int8_t shoot, CHSV colour) {
     }
 }
 
+template <int count>
 void render_led_shoot_wing(int8_t shoot, CHSV colour, CRGB* leds) {
-    if (shoot > 0) {
-        leds[PinConf::wing_rgb_lower + (PinConf::wing_rgb_upper - shoot)] = colour;
-    }
-    if (shoot < 0) {
-        leds[PinConf::wing_rgb_lower - shoot - 1] = colour;
-    }
+    if (shoot > 0) leds[count - shoot] = colour;
+    if (shoot < 0) leds[-shoot - 1] = colour;
 }
 
 void setup_leds() {
-    FastLED.addLeds<WS2812, PinConf::wing_rgb_l, GRB>(wing_rgb_l_leds, PinConf::wing_rgb_count);
-    FastLED.addLeds<WS2812, PinConf::wing_rgb_r, GRB>(wing_rgb_r_leds, PinConf::wing_rgb_count);
+    FastLED.addLeds<WS2812, PinConf::wing_rgb_l, GRB>(wing_rgb_l_leds.leds,
+                                                      PinConf::wing_rgb_count);
+    FastLED.addLeds<WS2812, PinConf::wing_rgb_r, GRB>(wing_rgb_r_leds.leds,
+                                                      PinConf::wing_rgb_count);
     FastLED.addLeds<WS2812, PinConf::start_rgb_l, GRB>(start_rgb_l_leds, PinConf::start_rgb_count);
     FastLED.addLeds<WS2812, PinConf::start_rgb_r, GRB>(start_rgb_r_leds, PinConf::start_rgb_count);
     blank_led();
@@ -132,71 +112,20 @@ void setup_leds() {
 // the line below to switch to only lighting every second LED.
 #define POWER_SAVE_BRIGHTNESS
 
-void do_hid_leds() {
-    // HID RGB is:
-    // - Wing left up
-    // - Wing right up
-    // - Wing left low
-    // - Wing right low
-    // - Woofer
-
-    if (!hid_dirty) return;
-    hid_dirty = false;
-
-#define POWER_SAVE_BRIGHTNESS
-
-    blank_led();
-
-#ifdef POWER_SAVE_BRIGHTNESS
-    for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
-        if (i < PinConf::wing_rgb_lower) {
-            wing_rgb_l_leds[i].setRGB(hid_led_data.leds.rgb[2].r / 4,
-                                      hid_led_data.leds.rgb[2].g / 4,
-                                      hid_led_data.leds.rgb[2].b / 4);
-            wing_rgb_r_leds[i].setRGB(hid_led_data.leds.rgb[3].r / 4,
-                                      hid_led_data.leds.rgb[3].g / 4,
-                                      hid_led_data.leds.rgb[3].b / 4);
-        } else {
-            wing_rgb_l_leds[i].setRGB(hid_led_data.leds.rgb[0].r / 4,
-                                      hid_led_data.leds.rgb[0].g / 4,
-                                      hid_led_data.leds.rgb[0].b / 4);
-            wing_rgb_r_leds[i].setRGB(hid_led_data.leds.rgb[1].r / 4,
-                                      hid_led_data.leds.rgb[1].g / 4,
-                                      hid_led_data.leds.rgb[1].b / 4);
-        }
-    }
-
-    for (uint8_t i = 0; i < PinConf::start_rgb_count; i++) {
-        start_rgb_l_leds[i].setRGB(hid_led_data.leds.rgb[4].r / 4, hid_led_data.leds.rgb[4].g / 4,
-                                   hid_led_data.leds.rgb[4].b / 4);
-        start_rgb_r_leds[i].setRGB(hid_led_data.leds.rgb[4].r / 4, hid_led_data.leds.rgb[4].g / 4,
-                                   hid_led_data.leds.rgb[4].b / 4);
-    }
-#else
-    for (uint8_t i = 0; i < PinConf::wing_rgb_count; i += 2) {
-        if (i < PinConf::wing_rgb_lower) {
-            memcpy(wing_rgb_l_leds[i].raw, hid_led_data.leds.rgb[2].raw, 3);
-            memcpy(wing_rgb_r_leds[i].raw, hid_led_data.leds.rgb[3].raw, 3);
-        } else {
-            memcpy(wing_rgb_l_leds[i].raw, hid_led_data.leds.rgb[0].raw, 3);
-            memcpy(wing_rgb_r_leds[i].raw, hid_led_data.leds.rgb[1].raw, 3);
-        }
-    }
-
-    for (uint8_t i = 0; i < PinConf::start_rgb_count; i += 2) {
-        memcpy(start_rgb_l_leds[i].raw, hid_led_data.leds.rgb[4].raw, 3);
-        memcpy(start_rgb_r_leds[i].raw, hid_led_data.leds.rgb[4].raw, 3);
-    }
-#endif
-    FastLED.show();
-}
-
 uint8_t led_animation_frame = 0;
 void do_wing_leds() {
     if (LED_has_colour() && buttons & KeyMap::led_colour) {
-        for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
-            wing_rgb_l_leds[i] = con_state.led_solid_l;
-            wing_rgb_r_leds[i] = con_state.led_solid_r;
+        for (uint8_t i = 0; i < PinConf::start_rgb_count; i++) {
+            start_rgb_l_leds[i] = con_state.led_solid_l[0];
+            start_rgb_r_leds[i] = con_state.led_solid_r[0];
+        }
+        for (uint8_t i = 0; i < PinConf::wing_rgb_upper; i++) {
+            wing_rgb_l_leds.top[i] = con_state.led_solid_l[1];
+            wing_rgb_r_leds.top[i] = con_state.led_solid_r[1];
+        }
+        for (uint8_t i = 0; i < PinConf::wing_rgb_lower; i++) {
+            wing_rgb_l_leds.bottom[i] = con_state.led_solid_l[2];
+            wing_rgb_r_leds.bottom[i] = con_state.led_solid_r[2];
         }
         return;
     }
@@ -211,19 +140,19 @@ void do_wing_leds() {
 #ifdef POWER_SAVE_BRIGHTNESS
             for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
                 if (i < PinConf::wing_rgb_lower) {
-                    wing_rgb_l_leds[i].setRGB(hid_led_data.leds.rgb[2].r / 4,
-                                              hid_led_data.leds.rgb[2].g / 4,
-                                              hid_led_data.leds.rgb[2].b / 4);
-                    wing_rgb_r_leds[i].setRGB(hid_led_data.leds.rgb[3].r / 4,
-                                              hid_led_data.leds.rgb[3].g / 4,
-                                              hid_led_data.leds.rgb[3].b / 4);
+                    wing_rgb_l_leds.leds[i].setRGB(hid_led_data.leds.rgb[2].r / 4,
+                                                   hid_led_data.leds.rgb[2].g / 4,
+                                                   hid_led_data.leds.rgb[2].b / 4);
+                    wing_rgb_r_leds.leds[i].setRGB(hid_led_data.leds.rgb[3].r / 4,
+                                                   hid_led_data.leds.rgb[3].g / 4,
+                                                   hid_led_data.leds.rgb[3].b / 4);
                 } else {
-                    wing_rgb_l_leds[i].setRGB(hid_led_data.leds.rgb[0].r / 4,
-                                              hid_led_data.leds.rgb[0].g / 4,
-                                              hid_led_data.leds.rgb[0].b / 4);
-                    wing_rgb_r_leds[i].setRGB(hid_led_data.leds.rgb[1].r / 4,
-                                              hid_led_data.leds.rgb[1].g / 4,
-                                              hid_led_data.leds.rgb[1].b / 4);
+                    wing_rgb_l_leds.leds[i].setRGB(hid_led_data.leds.rgb[0].r / 4,
+                                                   hid_led_data.leds.rgb[0].g / 4,
+                                                   hid_led_data.leds.rgb[0].b / 4);
+                    wing_rgb_r_leds.leds[i].setRGB(hid_led_data.leds.rgb[1].r / 4,
+                                                   hid_led_data.leds.rgb[1].g / 4,
+                                                   hid_led_data.leds.rgb[1].b / 4);
                 }
             }
 #else
@@ -240,22 +169,26 @@ void do_wing_leds() {
             break;
         case led_wing_mode_rainbow:
             for (uint8_t i = 0; i < PinConf::wing_rgb_lower; i++) {
-                wing_rgb_l_leds[PinConf::wing_rgb_lower - i] = CHSV(
+                wing_rgb_l_leds.bottom[PinConf::wing_rgb_lower - i] = CHSV(
                     led_animation_frame + i * (256 / ((float)(PinConf::wing_rgb_lower))), 255, 255);
-                wing_rgb_r_leds[PinConf::wing_rgb_lower - i] = CHSV(
+                wing_rgb_r_leds.bottom[PinConf::wing_rgb_lower - i] = CHSV(
                     led_animation_frame + i * (256 / ((float)(PinConf::wing_rgb_lower))), 255, 255);
             }
             for (uint8_t i = 0; i < PinConf::wing_rgb_upper; i++) {
-                wing_rgb_l_leds[PinConf::wing_rgb_lower + i] = CHSV(
+                wing_rgb_l_leds.top[i] = CHSV(
                     led_animation_frame + i * (256 / ((float)PinConf::wing_rgb_upper)), 255, 255);
-                wing_rgb_r_leds[PinConf::wing_rgb_lower + i] = CHSV(
+                wing_rgb_r_leds.top[i] = CHSV(
                     led_animation_frame + i * (256 / ((float)PinConf::wing_rgb_upper)), 255, 255);
             }
             break;
         case led_wing_mode_colour:
-            for (uint8_t i = 0; i < PinConf::wing_rgb_count; i++) {
-                wing_rgb_l_leds[i] = con_state.led_solid_l;
-                wing_rgb_r_leds[i] = con_state.led_solid_r;
+            for (uint8_t i = 0; i < PinConf::wing_rgb_upper; i++) {
+                wing_rgb_l_leds.top[i] = con_state.led_solid_l[1];
+                wing_rgb_r_leds.top[i] = con_state.led_solid_r[1];
+            }
+            for (uint8_t i = 0; i < PinConf::wing_rgb_lower; i++) {
+                wing_rgb_l_leds.bottom[i] = con_state.led_solid_l[2];
+                wing_rgb_r_leds.bottom[i] = con_state.led_solid_r[2];
             }
             break;
         default:
@@ -282,8 +215,8 @@ void do_start_leds() {
             break;
         case led_start_mode_colour:
             for (uint8_t i = 0; i < PinConf::start_rgb_count; i++) {
-                start_rgb_l_leds[i] = con_state.led_solid_l;
-                start_rgb_r_leds[i] = con_state.led_solid_r;
+                start_rgb_l_leds[i] = con_state.led_solid_l[0];
+                start_rgb_r_leds[i] = con_state.led_solid_r[0];
             }
             break;
         case led_start_mode_hid:
@@ -310,18 +243,36 @@ void do_start_leds() {
 void do_laser_leds() {
     static int8_t l_shoot_start = 0;
     static int8_t r_shoot_start = 0;
-    static int8_t l_shoot_wing = 0;
-    static int8_t r_shoot_wing = 0;
+    static int8_t l_shoot_wing_upper = 0;
+    static int8_t r_shoot_wing_upper = 0;
+    static int8_t l_shoot_wing_lower = 0;
+    static int8_t r_shoot_wing_lower = 0;
 
     if (vol_x_dir_led > 0 && !l_shoot_start) l_shoot_start = PinConf::start_rgb_count * 2;
     if (vol_x_dir_led < 0 && !l_shoot_start) l_shoot_start = -PinConf::start_rgb_count * 2;
     if (vol_y_dir_led > 0 && !r_shoot_start) r_shoot_start = PinConf::start_rgb_count * 2;
     if (vol_y_dir_led < 0 && !r_shoot_start) r_shoot_start = -PinConf::start_rgb_count * 2;
 
-    if (vol_x_dir_led > 0 && !l_shoot_wing) l_shoot_wing = -PinConf::wing_rgb_upper;
-    if (vol_x_dir_led < 0 && !l_shoot_wing) l_shoot_wing = PinConf::wing_rgb_upper;
-    if (vol_y_dir_led > 0 && !r_shoot_wing) r_shoot_wing = PinConf::wing_rgb_upper;
-    if (vol_y_dir_led < 0 && !r_shoot_wing) r_shoot_wing = -PinConf::wing_rgb_upper;
+    if (vol_x_dir_led > 0 && !l_shoot_wing_upper) l_shoot_wing_upper = -PinConf::wing_rgb_upper;
+    if (vol_x_dir_led < 0 && !l_shoot_wing_upper) l_shoot_wing_upper = PinConf::wing_rgb_upper;
+    if (vol_y_dir_led > 0 && !r_shoot_wing_upper) r_shoot_wing_upper = PinConf::wing_rgb_upper;
+    if (vol_y_dir_led < 0 && !r_shoot_wing_upper) r_shoot_wing_upper = -PinConf::wing_rgb_upper;
+
+    if (con_state.reactive_buttons) {
+        if (buttons & PinConf::FX_L && !l_shoot_wing_lower)
+            l_shoot_wing_lower = PinConf::wing_rgb_lower;
+        if (buttons & PinConf::FX_R && !r_shoot_wing_lower)
+            r_shoot_wing_lower = PinConf::wing_rgb_lower;
+        if (buttons & (PinConf::BT_A | PinConf::BT_B) && !l_shoot_wing_upper)
+            l_shoot_wing_upper = -PinConf::wing_rgb_upper;
+        if (buttons & (PinConf::BT_C | PinConf::BT_D) && !r_shoot_wing_upper)
+            r_shoot_wing_upper = -PinConf::wing_rgb_upper;
+
+        if (buttons & PinConf::START && !l_shoot_start) {
+            l_shoot_start = PinConf::start_rgb_count;
+            r_shoot_start = -PinConf::start_rgb_count;
+        }
+    }
 
     vol_x_dir_led = vol_y_dir_led = 0;
 
@@ -329,14 +280,26 @@ void do_laser_leds() {
         case led_laser_mode_white:
             render_led_shoot_start(l_shoot_start, CHSV(0, 0, 255));
             render_led_shoot_start(r_shoot_start, CHSV(0, 0, 255));
-            render_led_shoot_wing(l_shoot_wing, CHSV(0, 0, 255), wing_rgb_l_leds);
-            render_led_shoot_wing(r_shoot_wing, CHSV(0, 0, 255), wing_rgb_r_leds);
+            render_led_shoot_wing<PinConf::wing_rgb_upper>(l_shoot_wing_upper, CHSV(0, 0, 255),
+                                                           wing_rgb_l_leds.top);
+            render_led_shoot_wing<PinConf::wing_rgb_upper>(r_shoot_wing_upper, CHSV(0, 0, 255),
+                                                           wing_rgb_r_leds.top);
+            render_led_shoot_wing<PinConf::wing_rgb_lower>(l_shoot_wing_lower, CHSV(255, 0, 255),
+                                                           wing_rgb_l_leds.bottom);
+            render_led_shoot_wing<PinConf::wing_rgb_lower>(r_shoot_wing_lower, CHSV(255, 0, 255),
+                                                           wing_rgb_r_leds.bottom);
             break;
         case led_laser_mode_colour:
-            render_led_shoot_start(l_shoot_start, con_state.led_solid_l);
-            render_led_shoot_start(r_shoot_start, con_state.led_solid_r);
-            render_led_shoot_wing(l_shoot_wing, con_state.led_solid_l, wing_rgb_l_leds);
-            render_led_shoot_wing(r_shoot_wing, con_state.led_solid_r, wing_rgb_r_leds);
+            render_led_shoot_start(l_shoot_start, con_state.led_solid_l[0]);
+            render_led_shoot_start(r_shoot_start, con_state.led_solid_r[0]);
+            render_led_shoot_wing<PinConf::wing_rgb_upper>(
+                l_shoot_wing_upper, con_state.led_solid_l[1], wing_rgb_l_leds.top);
+            render_led_shoot_wing<PinConf::wing_rgb_upper>(
+                r_shoot_wing_upper, con_state.led_solid_r[1], wing_rgb_r_leds.top);
+            render_led_shoot_wing<PinConf::wing_rgb_lower>(
+                l_shoot_wing_lower, con_state.led_solid_l[2], wing_rgb_l_leds.bottom);
+            render_led_shoot_wing<PinConf::wing_rgb_lower>(
+                r_shoot_wing_lower, con_state.led_solid_r[2], wing_rgb_r_leds.bottom);
             break;
         default:
             break;
@@ -344,8 +307,10 @@ void do_laser_leds() {
 
     toward_zero(&l_shoot_start);
     toward_zero(&r_shoot_start);
-    toward_zero(&l_shoot_wing);
-    toward_zero(&r_shoot_wing);
+    toward_zero(&l_shoot_wing_upper);
+    toward_zero(&r_shoot_wing_upper);
+    toward_zero(&l_shoot_wing_lower);
+    toward_zero(&r_shoot_wing_lower);
 }
 
 // Writes the animation values for LEDs into button_leds

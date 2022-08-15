@@ -10,10 +10,19 @@ const persistent_data_t default_con_state{
         led_wing_mode_rainbow,
         led_button_mode_live,
     },
-    .led_solid_l = CHSV(0, 255, 255),
-    .led_solid_r = CHSV(0, 255, 255),
+    .led_solid_l = {
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+    },
+    .led_solid_r = {
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+    },
     .auto_hid = true,
-    .con_mode = con_mode_kb_mouse,
+    .reactive_buttons = true,
+    .con_mode = con_mode_mixed,
     .keymap = { 'd', 'f', 'j', 'k', 'v', 'n', 't', 'q', 'a', 'z' },
 };
 persistent_data_t con_state = default_con_state;

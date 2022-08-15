@@ -1,14 +1,17 @@
-#include "HID_lighting.h"
-#include "SAMDTimerInterrupt.h"
-#include "SAMD_ISR_Timer.h"
+// #include "HID/Keymap.h"
+#include <HID-project.h>
+
+#include "HID/Lighting.h"
+#include "HID/MiniConsumer.h"
+#include "HID/MiniGamepad.h"
+#include "HID/MiniKeyboard.h"
+#include "HID/MiniMouse.h"
 #include "buttons.h"
 #include "kdb_mouse_joy.h"
 #include "leds.h"
 #include "persist.h"
 #include "pins.h"
 #include "vol.h"
-
-SAMDTimer ITimer(TIMER_TC3);
 
 void handle_ex_buttons() {
     static uint16_t blink_tick = 0;
@@ -36,16 +39,20 @@ void handle_ex_buttons() {
 
             if (blink_tick & 64) button_leds |= (1 << con_state.con_mode);
 
-            if (posedge_buttons & PinConf::BT_A) con_state.con_mode = con_mode_kb_mouse;
-            if (posedge_buttons & PinConf::BT_B) con_state.con_mode = con_mode_joystick_position;
-            if (posedge_buttons & PinConf::BT_C) con_state.con_mode = con_mode_joystick_direction;
+            if (posedge_buttons & PinConf::BT_A) con_state.con_mode = con_mode_mixed;
+            if (posedge_buttons & PinConf::BT_B) con_state.con_mode = con_mode_kb_mouse;
+            if (posedge_buttons & PinConf::BT_C) con_state.con_mode = con_mode_joystick_position;
+            if (posedge_buttons & PinConf::BT_D) con_state.con_mode = con_mode_joystick_direction;
 
             if (con_state.con_mode != last_con_mode) {
-                NKROKeyboard.releaseAll();
-                Gamepad.releaseAll();
-                Gamepad.xAxis(0);
-                Gamepad.yAxis(0);
-                Gamepad.write();
+                MiniKeyboard.releaseAll();
+                MiniKeyboard.write();
+
+                MiniGamepad.report.buttons = 0;
+                MiniGamepad.report.vol_x = 0;
+                MiniGamepad.report.vol_y = 0;
+                MiniGamepad.write();
+
                 needs_save = true;
             }
         } else {
@@ -69,6 +76,9 @@ void handle_ex_buttons() {
             if (posedge_buttons & KeyMap::toggle_auto_hid) {
                 con_state.auto_hid = !con_state.auto_hid;
             }
+            if (posedge_buttons & KeyMap::toggle_reactive_buttons) {
+                con_state.reactive_buttons = !con_state.reactive_buttons;
+            }
 
             if (buttons & KeyMap::change_wing) button_leds |= (1 << con_state.led_mode.wing);
             if (buttons & KeyMap::change_start) button_leds |= (1 << con_state.led_mode.start);
@@ -76,6 +86,7 @@ void handle_ex_buttons() {
             if (buttons & KeyMap::change_lasers) button_leds |= (1 << con_state.led_mode.lasers);
 
             if (con_state.auto_hid) button_leds |= KeyMap::toggle_auto_hid;
+            if (con_state.reactive_buttons) button_leds |= KeyMap::toggle_reactive_buttons;
         }
     }
 
@@ -85,8 +96,13 @@ void handle_ex_buttons() {
         led_change_tick = 0;
 
         if (!(buttons & KeyMap::led_mode) && buttons & KeyMap::led_colour && LED_has_colour()) {
-            con_state.led_solid_l.h += vol_x_dir;
-            con_state.led_solid_r.h += vol_y_dir;
+            // TODO: Come up with a way to change all three zones without PC configuration
+            con_state.led_solid_l[0].h += vol_x_dir;
+            con_state.led_solid_l[1] = con_state.led_solid_l[0];
+            con_state.led_solid_l[2] = con_state.led_solid_l[0];
+            con_state.led_solid_r[0].h += vol_y_dir;
+            con_state.led_solid_r[1] = con_state.led_solid_r[0];
+            con_state.led_solid_r[2] = con_state.led_solid_r[0];
         }
     }
 
@@ -105,67 +121,35 @@ void handle_macro_keys() {
     button_leds = PinConf::BT_A | PinConf::BT_B;
 
     if (posedge_buttons & PinConf::BT_A) {
-        NKROKeyboard.press(KEYPAD_ADD);
+        MiniKeyboard.press(KEYPAD_ADD);
         delay(100);
-        NKROKeyboard.release(KEYPAD_ADD);
+        MiniKeyboard.release(KEYPAD_ADD);
     }
     if (posedge_buttons & PinConf::BT_B) {
-        NKROKeyboard.press(KEYPAD_1);
+        MiniKeyboard.press(KEYPAD_1);
         delay(100);
-        NKROKeyboard.release(KEYPAD_1);
+        MiniKeyboard.release(KEYPAD_1);
         delay(100);
-        NKROKeyboard.press(KEYPAD_2);
+        MiniKeyboard.press(KEYPAD_2);
         delay(100);
-        NKROKeyboard.release(KEYPAD_2);
+        MiniKeyboard.release(KEYPAD_2);
         delay(100);
-        NKROKeyboard.press(KEYPAD_3);
+        MiniKeyboard.press(KEYPAD_3);
         delay(100);
-        NKROKeyboard.release(KEYPAD_3);
+        MiniKeyboard.release(KEYPAD_3);
         delay(100);
-        NKROKeyboard.press(KEYPAD_4);
+        MiniKeyboard.press(KEYPAD_4);
         delay(100);
-        NKROKeyboard.release(KEYPAD_4);
+        MiniKeyboard.release(KEYPAD_4);
     }
 
     // Decrease sens by a lot
     static uint8_t tick = 0;
     if ((++tick) == 20) {
         tick = 0;
-        if (vol_x_dir < 0) Consumer.write(MEDIA_VOLUME_DOWN);
-        if (vol_x_dir > 0) Consumer.write(MEDIA_VOLUME_UP);
+        if (vol_x_dir < 0) MiniConsumer.write(MEDIA_VOLUME_DOWN);
+        if (vol_x_dir > 0) MiniConsumer.write(MEDIA_VOLUME_UP);
     }
-}
-
-void timer_1000us() {
-    /*
-        Everything relating to button_leds needs to be performed here.
-    */
-    read_buttons();
-
-    handle_ex_buttons();
-    if (buttons & KeyMap::macro_key) {
-        handle_macro_keys();
-    }
-
-    vol_x_dir_led = vol_x_dir;
-    vol_y_dir_led = vol_y_dir;
-
-    switch (con_state.con_mode) {
-        case con_mode_kb_mouse:
-            do_keyboard();
-            do_mouse();
-            break;
-        case con_mode_joystick_position:
-            do_joystick(true);
-            break;
-        case con_mode_joystick_direction:
-            do_joystick(false);
-            break;
-        default:
-            break;
-    }
-
-    write_button_leds();
 }
 
 void setup() {
@@ -178,13 +162,11 @@ void setup() {
     setup_vol();
     setup_leds();
 
-    Consumer.begin();
-    NKROKeyboard.begin();
-    Mouse.begin();
-    Gamepad.begin();
     HIDLeds.begin();
-
-    ITimer.attachInterruptInterval_MS(1, timer_1000us);
+    MiniConsumer.begin();
+    MiniGamepad.begin();
+    MiniMouse.begin();
+    MiniKeyboard.begin();
 
     Serial.begin(9600);
 }
@@ -252,18 +234,44 @@ void active_delay(unsigned long ms) {
 }
 
 void loop() {
-    // Gamepad writes are quite expensive, so unfortunately get lumped into this 100Hz loop too.
-    // Finding a way to make them faster could be worthwhile, but with a crtitical timing window of
-    // 33ms, is 10ms latency an issue? (Note: This is compounded by the debouncing latency, so the
-    // answer to "is this an issue" very may well be "yes".)
-    if (con_state.con_mode == con_mode_joystick_direction ||
-        con_state.con_mode == con_mode_joystick_position) {
-        Gamepad.write();
+    static unsigned long last_leds = micros();
+
+    read_buttons();
+
+    handle_ex_buttons();
+    if (buttons & KeyMap::macro_key) {
+        handle_macro_keys();
     }
+
+    vol_x_dir_led = vol_x_dir;
+    vol_y_dir_led = vol_y_dir;
+
+    switch (con_state.con_mode) {
+        case con_mode_kb_mouse:
+            do_keyboard();
+            do_mouse();
+            break;
+        case con_mode_joystick_position:
+            do_joystick(true);
+            break;
+        case con_mode_joystick_direction:
+            do_joystick(false);
+            break;
+        case con_mode_mixed:
+            do_keyboard();
+            do_mouse();
+            do_joystick(true);
+            break;
+        default:
+            break;
+    }
+
+    write_button_leds();
 
     // We're only going to bother updating the LEDs every 10ms or so, because it's expensive and
     // overkill to have 1000Hz LEDs. 100Hz is probably over kill too to be honest, but whatever.
-    do_leds();
-
-    active_delay(10);
+    if (micros() - last_leds > 10000) {
+        last_leds = micros();
+        do_leds();
+    }
 }

@@ -36,7 +36,7 @@ constexpr uint16_t EX_2 = 256;
 constexpr uint16_t EX_3 = 512;
 
 constexpr button_pins_t buttons[] = { bt_a, bt_b, bt_c, bt_d, fx_l, fx_r, start, ex_1, ex_2, ex_3 };
-constexpr uint8_t gamepad_map[] = { 1, 2, 3, 4, 5, 6, 9, 10, 8, 7 };
+constexpr uint8_t gamepad_map[] = { 0, 1, 2, 3, 4, 5, 8, 9, 7, 6 };
 
 typedef struct {
     pin_size_t g1;
@@ -73,6 +73,7 @@ constexpr uint16_t change_wing = PinConf::BT_A;
 constexpr uint16_t change_start = PinConf::BT_B;
 constexpr uint16_t change_buttons = PinConf::BT_C;
 constexpr uint16_t change_lasers = PinConf::BT_D;
+constexpr uint16_t toggle_reactive_buttons = PinConf::FX_L;
 constexpr uint16_t toggle_auto_hid = PinConf::FX_R;
 
 constexpr uint16_t led_reset = PinConf::EX_1 | PinConf::EX_2 | PinConf::BT_B | PinConf::BT_C;
