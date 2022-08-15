@@ -21,4 +21,10 @@ jobs:
         run: pip install --upgrade platformio
 
       - name: Build PlatformIO Project
-        run: pio run
+        run: pio lib install && pio run
+
+      - name: Publish artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: build
+          path: .
