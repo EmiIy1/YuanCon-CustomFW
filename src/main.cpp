@@ -1,6 +1,3 @@
-// #include "HID/Keymap.h"
-#include <HID-Project.h>
-
 #include "HID/Lighting.h"
 #include "HID/MiniConsumer.h"
 #include "HID/MiniGamepad.h"
@@ -125,25 +122,36 @@ void handle_macro_keys() {
 
     if (posedge_buttons & PinConf::BT_A) {
         MiniKeyboard.press(KEYPAD_ADD);
+        MiniKeyboard.write();
         delay(100);
         MiniKeyboard.release(KEYPAD_ADD);
+        MiniKeyboard.write();
     }
+
     if (posedge_buttons & PinConf::BT_B) {
         MiniKeyboard.press(KEYPAD_1);
+        MiniKeyboard.write();
         delay(100);
         MiniKeyboard.release(KEYPAD_1);
+        MiniKeyboard.write();
         delay(100);
         MiniKeyboard.press(KEYPAD_2);
+        MiniKeyboard.write();
         delay(100);
         MiniKeyboard.release(KEYPAD_2);
+        MiniKeyboard.write();
         delay(100);
         MiniKeyboard.press(KEYPAD_3);
+        MiniKeyboard.write();
         delay(100);
         MiniKeyboard.release(KEYPAD_3);
+        MiniKeyboard.write();
         delay(100);
         MiniKeyboard.press(KEYPAD_4);
+        MiniKeyboard.write();
         delay(100);
         MiniKeyboard.release(KEYPAD_4);
+        MiniKeyboard.write();
     }
 
     // Decrease sens by a lot
@@ -204,6 +212,10 @@ void do_serial() {
             // Clear board config
             memcpy(&con_state, &default_con_state, sizeof con_state);
             save_con_state();
+            // Keymap possibly changed, so unpress everything
+            MiniKeyboard.releaseAll();
+            MiniKeyboard.write();
+            // TODO: Unpress gamepad buttons, once those are configurable
             SerialUSB.write('c');
             break;
         case 'C':

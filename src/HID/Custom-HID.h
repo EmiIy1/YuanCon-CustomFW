@@ -18,7 +18,6 @@ class CustomHID_ : public PluggableUSBModule {
     int getInterface(uint8_t* interfaceCount);
     int getDescriptor(USBSetup& setup);
     bool setup(USBSetup& setup);
-    uint8_t getShortName(char* name);
 
    private:
     unsigned int epType[1];

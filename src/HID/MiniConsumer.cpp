@@ -34,12 +34,12 @@ MiniConsumer_::MiniConsumer_(void) {
 void MiniConsumer_::SendReport(void* data, int length) {
     CustomHID().SendReport(HID_REPORTID_MINI_CONTROL, data, length);
 }
-bool MiniConsumer_::write(uint16_t key) {
+bool MiniConsumer_::write(ConsumerKeycode key) {
     if (!press(key)) return false;
     release();
     return true;
 };
-bool MiniConsumer_::press(uint16_t key) {
+bool MiniConsumer_::press(ConsumerKeycode key) {
     if (report.button) return false;
     report.button = key;
     SendReport(&report, sizeof report);

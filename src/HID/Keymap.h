@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <vendor.h>
+
 // Keyboard Modifiers
 enum KeyboardMods : uint16_t {
     MOD_LEFT_CTRL = (1 << 8),

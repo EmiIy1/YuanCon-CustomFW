@@ -59,15 +59,6 @@ int CustomHID_::getDescriptor(USBSetup& setup) {
     return total;
 }
 
-uint8_t CustomHID_::getShortName(char* name) {
-    name[0] = 'H';
-    name[1] = 'I';
-    name[2] = 'D';
-    name[3] = 'A' + (descriptorSize & 0x0F);
-    name[4] = 'A' + ((descriptorSize >> 4) & 0x0F);
-    return 5;
-}
-
 void CustomHID_::AppendCallback(HIDCallback* callback) {
     if (!rootCallback) {
         rootCallback = callback;
