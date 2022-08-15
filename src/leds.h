@@ -31,17 +31,19 @@ typedef enum : uint8_t {
 typedef struct {
     led_laser_mode_t lasers;
     led_start_mode_t start;
-    led_wing_mode_t wing;
+    led_wing_mode_t wing_upper;
+    led_wing_mode_t wing_lower;
     led_button_mode_t buttons;
 } led_mode_config_t;
 
 extern led_mode_config_t builtin_modes[];
 extern led_mode_config_t* led_quick_dial[4];
 
-#define LED_has_colour()                                   \
-    (con_state.led_mode.lasers == led_laser_mode_colour || \
-     con_state.led_mode.start == led_start_mode_colour ||  \
-     con_state.led_mode.wing == led_wing_mode_colour)
+#define LED_has_colour()                                      \
+    (con_state.led_mode.lasers == led_laser_mode_colour ||    \
+     con_state.led_mode.start == led_start_mode_colour ||     \
+     con_state.led_mode.wing_upper == led_wing_mode_colour || \
+     con_state.led_mode.wing_lower == led_wing_mode_colour)
 
 extern uint16_t button_leds;
 

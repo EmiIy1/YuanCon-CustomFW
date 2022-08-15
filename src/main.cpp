@@ -21,10 +21,11 @@ void handle_ex_buttons() {
 
     if (buttons == KeyMap::led_reset) {
         // As long as one, any, of the buttons was posedge
-        if (posedge_buttons & KeyMap::led_reset) {
-            memcpy(&con_state.led_mode, &builtin_modes[0], sizeof con_state.led_mode);
-            needs_save = true;
-        }
+        // TODO: Bring this back
+        // if (posedge_buttons & KeyMap::led_reset) {
+        //     memcpy(&con_state.led_mode, &builtin_modes[0], sizeof con_state.led_mode);
+        //     needs_save = true;
+        // }
     } else if (buttons & KeyMap::led_mode) {
         button_leds = 0;
 
@@ -57,8 +58,10 @@ void handle_ex_buttons() {
             }
         } else {
             if (posedge_buttons & KeyMap::change_wing) {
-                if ((++*((uint8_t *)&con_state.led_mode.wing)) == _no_led_wing_modes)
-                    con_state.led_mode.wing = (led_wing_mode_t)0;
+                if ((++*((uint8_t *)&con_state.led_mode.wing_upper)) == _no_led_wing_modes)
+                    con_state.led_mode.wing_upper = (led_wing_mode_t)0;
+
+                con_state.led_mode.wing_lower = con_state.led_mode.wing_upper;
             }
             if (posedge_buttons & KeyMap::change_start) {
                 if ((++*((uint8_t *)&con_state.led_mode.start)) == _no_led_start_modes)
@@ -80,7 +83,7 @@ void handle_ex_buttons() {
                 con_state.reactive_buttons = !con_state.reactive_buttons;
             }
 
-            if (buttons & KeyMap::change_wing) button_leds |= (1 << con_state.led_mode.wing);
+            if (buttons & KeyMap::change_wing) button_leds |= (1 << con_state.led_mode.wing_upper);
             if (buttons & KeyMap::change_start) button_leds |= (1 << con_state.led_mode.start);
             if (buttons & KeyMap::change_buttons) button_leds |= (1 << con_state.led_mode.buttons);
             if (buttons & KeyMap::change_lasers) button_leds |= (1 << con_state.led_mode.lasers);
@@ -162,18 +165,18 @@ void setup() {
     setup_vol();
     setup_leds();
 
+    SerialUSB.begin(115200);
+
     HIDLeds.begin();
     MiniConsumer.begin();
     MiniGamepad.begin();
     MiniMouse.begin();
     MiniKeyboard.begin();
-
-    Serial.begin(9600);
 }
 
 void do_serial() {
-    if (!Serial.available()) return;
-    switch (Serial.read()) {
+    if (!SerialUSB.available()) return;
+    switch (SerialUSB.read()) {
         case 'R': {
             // Force a reboot into the bootloader by pretending we double tapped reset
 
@@ -188,54 +191,36 @@ void do_serial() {
             break;
         case 's':
             // Get board config
-            Serial.write(PERSIST_DATA_VERSION);
-            Serial.write(sizeof con_state);
-            Serial.write((uint8_t *)&con_state, sizeof con_state);
+            SerialUSB.write(PERSIST_DATA_VERSION);
+            SerialUSB.write(sizeof con_state);
+            SerialUSB.write((uint8_t *)&con_state, sizeof con_state);
             break;
         case 'S':
             // Set board config
-            Serial.readBytes((uint8_t *)&con_state, sizeof con_state);
-            Serial.write('S');
+            SerialUSB.readBytes((uint8_t *)&con_state, sizeof con_state);
+            SerialUSB.write('S');
             break;
         case 'c':
             // Clear board config
             memcpy(&con_state, &default_con_state, sizeof con_state);
             save_con_state();
-            Serial.write('c');
+            SerialUSB.write('c');
             break;
         case 'C':
             // Commit board config
             save_con_state();
             load_con_state();
-            Serial.write('C');
+            SerialUSB.write('C');
             break;
         default:
             break;
     }
 }
 
-void active_delay(unsigned long ms) {
-    if (ms == 0) {
-        return;
-    }
-
-    uint32_t start = micros();
-
-    while (ms > 0) {
-        // This line is the only edit compared to stock
-        if (Serial) do_serial();
-
-        yield();
-        while (ms > 0 && (micros() - start) >= 1000) {
-            ms--;
-            start += 1000;
-        }
-    }
-}
-
 void loop() {
     static unsigned long last_leds = micros();
 
+    if (SerialUSB) do_serial();
     read_buttons();
 
     handle_ex_buttons();

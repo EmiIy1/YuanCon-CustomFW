@@ -8,6 +8,7 @@ const persistent_data_t default_con_state{
         led_laser_mode_white,
         led_start_mode_none,
         led_wing_mode_rainbow,
+        led_wing_mode_rainbow,
         led_button_mode_live,
     },
     .led_solid_l = {
