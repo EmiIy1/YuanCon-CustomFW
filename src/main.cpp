@@ -1,5 +1,5 @@
 // #include "HID/Keymap.h"
-#include <HID-project.h>
+#include <HID-Project.h>
 
 #include "HID/Lighting.h"
 #include "HID/MiniConsumer.h"
