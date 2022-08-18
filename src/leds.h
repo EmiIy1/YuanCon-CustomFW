@@ -1,6 +1,8 @@
 #pragma once
 #include <vendor.h>
 
+extern uint8_t led_brightness;
+
 typedef enum : uint8_t {
     led_laser_mode_white = 0,
     led_laser_mode_colour,

@@ -39,7 +39,7 @@ void MiniKeyboard_::SendReport(void* data, int length) {
 }
 bool MiniKeyboard_::press(uint8_t key) {
     // asciimap includes modifiers. we're not going to do that.
-    press((KeyboardKeycode)(_asciimap[key] & 0xff));
+    return press((KeyboardKeycode)(_asciimap[key] & 0xff));
 }
 bool MiniKeyboard_::press(KeyboardKeycode key) {
     if (depressed == sizeof report.buttons) return false;

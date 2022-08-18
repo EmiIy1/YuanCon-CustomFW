@@ -7,6 +7,7 @@
 #include "vol.h"
 
 uint16_t button_leds;
+uint8_t led_brightness = 255;
 
 typedef union {
     CRGB leds[PinConf::wing_rgb_count];
@@ -55,6 +56,18 @@ template <int count>
 void render_led_shoot_wing(int8_t shoot, CHSV colour, CRGB* leds) {
     if (shoot > 0) leds[count - shoot] = colour;
     if (shoot < 0) leds[-shoot - 1] = colour;
+}
+
+template <int count, bool invert>
+void render_led_fill(int8_t fill, CHSV colour, CRGB* leds) {
+#define idx(i) (invert ? count - (i)-1 : (i))
+
+    if (fill > 0)
+        for (uint8_t i = 0; i <= (count - fill); i++) leds[idx(i)] = colour;
+    else if (fill < 0)
+        for (uint8_t i = count + fill + 1; i < count; i++) leds[idx(i)] = colour;
+
+#undef idx
 }
 
 void setup_leds() {
@@ -236,10 +249,12 @@ void do_laser_leds() {
     static int8_t r_shoot_start = 0;
     static int8_t l_shoot_wing_upper = 0;
     static int8_t r_shoot_wing_upper = 0;
-    static int8_t l_shoot_wing_lower = 0;
-    static int8_t r_shoot_wing_lower = 0;
-    static bool invert_start_shoot_l = false;
-    static bool invert_start_shoot_r = false;
+
+    static int8_t l_fill_wing_lower = 0;
+    static int8_t l_fill_wing_upper = 0;
+    static int8_t r_fill_wing_lower = 0;
+    static int8_t r_fill_wing_upper = 0;
+    static int8_t fill_start = 0;
 
     if (vol_x_dir_led > 0 && !l_shoot_start) l_shoot_start = PinConf::start_rgb_count * 2;
     if (vol_x_dir_led < 0 && !l_shoot_start) l_shoot_start = -PinConf::start_rgb_count * 2;
@@ -252,64 +267,95 @@ void do_laser_leds() {
     if (vol_y_dir_led < 0 && !r_shoot_wing_upper) r_shoot_wing_upper = -PinConf::wing_rgb_upper;
 
     if (con_state.reactive_buttons) {
-        if (buttons & PinConf::FX_L && !l_shoot_wing_lower)
-            l_shoot_wing_lower = PinConf::wing_rgb_lower;
-        if (buttons & PinConf::FX_R && !r_shoot_wing_lower)
-            r_shoot_wing_lower = PinConf::wing_rgb_lower;
-        if (buttons & (PinConf::BT_A | PinConf::BT_B) && !l_shoot_wing_upper)
-            l_shoot_wing_upper = -PinConf::wing_rgb_upper;
-        if (buttons & (PinConf::BT_C | PinConf::BT_D) && !r_shoot_wing_upper)
-            r_shoot_wing_upper = -PinConf::wing_rgb_upper;
+        if (buttons & PinConf::FX_L && !l_fill_wing_lower)
+            l_fill_wing_lower = PinConf::wing_rgb_lower;
+        if (buttons & PinConf::FX_R && !r_fill_wing_lower)
+            r_fill_wing_lower = PinConf::wing_rgb_lower;
 
-        if (buttons & PinConf::START && !l_shoot_start) {
-            r_shoot_start = -PinConf::start_rgb_count;
-            l_shoot_start = PinConf::start_rgb_count;
-            // We're hijacking the knob animation mid-animation, so need inverted colours
-            invert_start_shoot_l = invert_start_shoot_r = true;
-        }
+        if (buttons & (PinConf::BT_A | PinConf::BT_B) && !l_fill_wing_upper)
+            l_fill_wing_upper = PinConf::wing_rgb_upper;
+        if (buttons & (PinConf::BT_C | PinConf::BT_D) && !r_fill_wing_upper)
+            r_fill_wing_upper = PinConf::wing_rgb_upper;
+
+        if (buttons & PinConf::START && !fill_start) fill_start = PinConf::start_rgb_count;
     }
 
     vol_x_dir_led = vol_y_dir_led = 0;
 
+#define zone(side, i)                                                    \
+    (con_state.led_mode.lasers == led_laser_mode_white ? CHSV(0, 0, 255) \
+                                                       : (con_state.led_solid_##side)[i])
+
     switch (con_state.led_mode.lasers) {
         case led_laser_mode_white:
-            render_led_shoot_start(l_shoot_start, CHSV(0, 0, 255));
-            render_led_shoot_start(r_shoot_start, CHSV(0, 0, 255));
-            render_led_shoot_wing<PinConf::wing_rgb_upper>(l_shoot_wing_upper, CHSV(0, 0, 255),
-                                                           wing_rgb_l_leds.top);
-            render_led_shoot_wing<PinConf::wing_rgb_upper>(r_shoot_wing_upper, CHSV(0, 0, 255),
-                                                           wing_rgb_r_leds.top);
-            render_led_shoot_wing<PinConf::wing_rgb_lower>(l_shoot_wing_lower, CHSV(255, 0, 255),
-                                                           wing_rgb_l_leds.bottom);
-            render_led_shoot_wing<PinConf::wing_rgb_lower>(r_shoot_wing_lower, CHSV(255, 0, 255),
-                                                           wing_rgb_r_leds.bottom);
-            break;
         case led_laser_mode_colour:
-            render_led_shoot_start(l_shoot_start, invert_start_shoot_l ? con_state.led_solid_r[0]
-                                                                       : con_state.led_solid_l[0]);
-            render_led_shoot_start(r_shoot_start, invert_start_shoot_r ? con_state.led_solid_l[0]
-                                                                       : con_state.led_solid_r[0]);
-            render_led_shoot_wing<PinConf::wing_rgb_upper>(
-                l_shoot_wing_upper, con_state.led_solid_l[1], wing_rgb_l_leds.top);
-            render_led_shoot_wing<PinConf::wing_rgb_upper>(
-                r_shoot_wing_upper, con_state.led_solid_r[1], wing_rgb_r_leds.top);
-            render_led_shoot_wing<PinConf::wing_rgb_lower>(
-                l_shoot_wing_lower, con_state.led_solid_l[2], wing_rgb_l_leds.bottom);
-            render_led_shoot_wing<PinConf::wing_rgb_lower>(
-                r_shoot_wing_lower, con_state.led_solid_r[2], wing_rgb_r_leds.bottom);
+            render_led_shoot_start(l_shoot_start, zone(l, 0));
+            render_led_shoot_start(r_shoot_start, zone(r, 0));
+
+            render_led_shoot_wing<PinConf::wing_rgb_upper>(l_shoot_wing_upper, zone(l, 1),
+                                                           wing_rgb_l_leds.top);
+            render_led_shoot_wing<PinConf::wing_rgb_upper>(r_shoot_wing_upper, zone(r, 1),
+                                                           wing_rgb_r_leds.top);
+
+            // Button effects
+            render_led_fill<PinConf::start_rgb_count, false>(fill_start, zone(l, 0),
+                                                             start_rgb_l_leds);
+            render_led_fill<PinConf::start_rgb_count, false>(fill_start, zone(r, 0),
+                                                             start_rgb_r_leds);
+
+            render_led_fill<PinConf::wing_rgb_upper, true>(l_fill_wing_upper, zone(l, 1),
+                                                           wing_rgb_l_leds.top);
+            render_led_fill<PinConf::wing_rgb_upper, true>(r_fill_wing_upper, zone(r, 1),
+                                                           wing_rgb_r_leds.top);
+
+            render_led_fill<PinConf::wing_rgb_lower, false>(l_fill_wing_lower, zone(l, 2),
+                                                            wing_rgb_l_leds.bottom);
+            render_led_fill<PinConf::wing_rgb_lower, false>(r_fill_wing_lower, zone(r, 2),
+                                                            wing_rgb_r_leds.bottom);
             break;
         default:
             break;
     }
+#undef zone
 
     toward_zero(&l_shoot_start);
     toward_zero(&r_shoot_start);
     toward_zero(&l_shoot_wing_upper);
     toward_zero(&r_shoot_wing_upper);
-    toward_zero(&l_shoot_wing_lower);
-    toward_zero(&r_shoot_wing_lower);
-    if (l_shoot_start == 0) invert_start_shoot_l = false;
-    if (r_shoot_start == 0) invert_start_shoot_r = false;
+
+    if (fill_start > 0) {
+        if ((--fill_start) == 0) fill_start = -PinConf::wing_rgb_upper;
+    } else if (fill_start < 0)
+        fill_start++;
+
+    if (l_fill_wing_upper > 0) {
+        if ((--l_fill_wing_upper) == 0) l_fill_wing_upper = -PinConf::wing_rgb_upper;
+    } else if (l_fill_wing_upper < 0)
+        l_fill_wing_upper++;
+
+    if (r_fill_wing_upper > 0) {
+        if ((--r_fill_wing_upper) == 0) r_fill_wing_upper = -PinConf::wing_rgb_upper;
+    } else if (r_fill_wing_upper < 0)
+        r_fill_wing_upper++;
+
+    // We're stepping two at a time, so will overshoot sometimes
+    constexpr int8_t wing_rgb_zero = (PinConf::wing_rgb_lower % 2 == 0) ? 0 : -1;
+
+    if (l_fill_wing_lower > 0) {
+        l_fill_wing_lower -= 2;
+        if (l_fill_wing_lower == wing_rgb_zero) l_fill_wing_lower = -PinConf::wing_rgb_lower;
+    } else if (l_fill_wing_lower < 0) {
+        l_fill_wing_lower += 2;
+        if (l_fill_wing_lower > 0) l_fill_wing_lower = 0;
+    }
+
+    if (r_fill_wing_lower > 0) {
+        r_fill_wing_lower -= 2;
+        if (r_fill_wing_lower == wing_rgb_zero) r_fill_wing_lower = -PinConf::wing_rgb_lower;
+    } else if (r_fill_wing_lower < 0) {
+        r_fill_wing_lower += 2;
+        if (r_fill_wing_lower > 0) r_fill_wing_lower = 0;
+    }
 }
 
 // Writes the animation values for LEDs into button_leds
@@ -359,6 +405,8 @@ void do_leds() {
     do_wing_lower_leds();
     do_start_leds();
     do_laser_leds();
+
+    FastLED.setBrightness(led_brightness);
     // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that this call is unreasonably
     // ! espensive.
     FastLED.show();

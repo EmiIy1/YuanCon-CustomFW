@@ -21,6 +21,7 @@
 
 #include "Custom-HID.h"
 
+#include "IDs.h"
 #include "Lighting.h"
 
 CustomHID_& CustomHID() {
@@ -39,7 +40,84 @@ int CustomHID_::getInterface(uint8_t* interfaceCount) {
     return USBDevice.sendControl(&hidInterface, sizeof(hidInterface));
 }
 
+static void utox8(uint32_t val, char* s) {
+    for (int i = 0; i < 8; i++) {
+        int d = val & 0XF;
+        val = (val >> 4);
+
+        s[7 - i] = d > 9 ? 'A' + d - 10 : '0' + d;
+    }
+}
+uint8_t CustomHID_::getShortName(char* name) {
+    name[0] = 'Y';
+    name[1] = 'C';
+    name[2] = 'F';
+    name[3] = 'W';
+    name[4] = '-';
+
+#define SERIAL_NUMBER_WORD_0 *(volatile uint32_t*)(0x0080A00C)
+#define SERIAL_NUMBER_WORD_1 *(volatile uint32_t*)(0x0080A040)
+#define SERIAL_NUMBER_WORD_2 *(volatile uint32_t*)(0x0080A044)
+#define SERIAL_NUMBER_WORD_3 *(volatile uint32_t*)(0x0080A048)
+
+    utox8(SERIAL_NUMBER_WORD_0, &name[5]);
+    utox8(SERIAL_NUMBER_WORD_1, &name[13]);
+    utox8(SERIAL_NUMBER_WORD_2, &name[21]);
+    utox8(SERIAL_NUMBER_WORD_3, &name[29]);
+
+    name[36] = '\0';
+    return 36;
+}
+
 int CustomHID_::getDescriptor(USBSetup& setup) {
+    // TODO: Make this configurable
+    static const uint8_t STRING_PRODUCT[] = "YuanCon (CFW)";
+
+    if (setup.wValueH == USB_STRING_DESCRIPTOR_TYPE) {
+        switch (setup.wValueL) {
+            case IMANUFACTURER:
+                return USBDevice.sendStringDescriptor(STRING_PRODUCT, setup.wLength);
+            case IPRODUCT:
+                return USBDevice.sendStringDescriptor(STRING_PRODUCT, setup.wLength);
+            case ISERIAL:
+                return 0;
+        }
+        if (setup.wValueL >= HID_Strings_Base &&
+            setup.wValueL < HID_Strings_Base + (sizeof HID_strings / sizeof HID_strings[0])) {
+            if (setup.wValueL >= HID_strings_rgb && setup.wValueL < HID_strings_rgb_end) {
+                uint8_t string_idx = setup.wValueL - HID_Strings_Base;
+                string_idx -= (setup.wValueL - HID_strings_rgb) % 3;
+
+                const char* string = HID_strings[string_idx];
+                // Append R, G, or B to the string
+                char* modified = strcpy((char*)malloc(strlen(string) + 3), string);
+                char* end = modified + strlen(string);
+                end[0] = ' ';
+                switch ((setup.wValueL - HID_strings_rgb) % 3) {
+                    case 0:
+                        end[1] = 'R';
+                        break;
+                    case 1:
+                        end[1] = 'G';
+                        break;
+                    case 2:
+                    default:
+                        end[1] = 'B';
+                        break;
+                }
+                end[2] = '\0';
+
+                bool ret = USBDevice.sendStringDescriptor((uint8_t*)modified, setup.wLength);
+                free(modified);
+                return ret;
+            } else {
+                return USBDevice.sendStringDescriptor(
+                    (uint8_t*)HID_strings[setup.wValueL - HID_Strings_Base], setup.wLength);
+            }
+        }
+        return 0;
+    }
+
     // Check if this is a HID Class Descriptor request
     if (setup.bmRequestType != REQUEST_DEVICETOHOST_STANDARD_INTERFACE) return 0;
     if (setup.wValueH != HID_REPORT_DESCRIPTOR_TYPE) return 0;
@@ -47,16 +125,20 @@ int CustomHID_::getDescriptor(USBSetup& setup) {
     // In a HID Class Descriptor wIndex cointains the interface number
     if (setup.wIndex != pluggedInterface) return 0;
 
-    int total = 0;
+    // USBDevice.packMessages stores data into a 256-byte buffer. This is... too small. Far too
+    // small :).
+    uint8_t* buffer = (uint8_t*)malloc(setup.wLength);
+    uint8_t* workBuffer = buffer;
+
     HIDSubDescriptor* node;
-    USBDevice.packMessages(true);
     for (node = rootNode; node; node = node->next) {
-        int res = USBDevice.sendControl(node->data, node->length);
-        if (res == -1) return -1;
-        total += res;
+        memcpy(workBuffer, node->data, node->length);
+        workBuffer += node->length;
     }
-    USBDevice.packMessages(false);
-    return total;
+    int res = USBDevice.sendControl(buffer, setup.wLength);
+    free(buffer);
+    if (res == -1) return -1;
+    return setup.wLength;
 }
 
 void CustomHID_::AppendCallback(HIDCallback* callback) {
@@ -144,7 +226,6 @@ CustomHID_::CustomHID_(void)
       protocol(1),
       idle(1) {
     epType[0] = USB_ENDPOINT_TYPE_INTERRUPT | USB_ENDPOINT_IN(0);
-    ;
     PluggableUSB().plug(this);
 }
 

@@ -43,9 +43,17 @@ typedef struct {
     pin_size_t g2;
 } knob_pins_t;
 
-// Need to be interrupt pins, which they are (thanks, Yuan)
+// Ideally both of these need to be interrupt pins. Yuan opted to not do this.
+// The first of these two pins **must** be an interrupt.
 constexpr knob_pins_t vol_x = { 0, 1 };
 constexpr knob_pins_t vol_y = { 3, 4 };
+// Yuangineering. Note enabling this on a compatible board will double the sensitivity.
+constexpr bool kobs_two_interrupts = false;
+// For much faster access to the GPIO state. Must be matched with the above!
+#define readVolX1 ((REG_PORT_IN0 & PORT_PA10) != 0)
+#define readVolX2 ((REG_PORT_IN0 & PORT_PA11) != 0)
+#define readVolY1 ((REG_PORT_IN0 & PORT_PA08) != 0)
+#define readVolY2 ((REG_PORT_IN0 & PORT_PA09) != 0)
 
 constexpr pin_size_t wing_rgb_l = 38;
 constexpr pin_size_t wing_rgb_r = 11;
@@ -66,7 +74,9 @@ constexpr uint8_t start_rgb_count = 16;
 
 namespace KeyMap {
 constexpr uint16_t led_mode = PinConf::EX_1;
-constexpr uint16_t led_colour = PinConf::EX_2;
+constexpr uint16_t led_colour = PinConf::EX_2;  // TODO: What should cons without EX_2 do?
+// Cons without an EX_2 can't strike this chord, but they can still change mode during startup
+constexpr uint16_t change_mode = PinConf::EX_1 | PinConf::EX_2 | PinConf::START;
 
 // Holding KeyMap::led_mode is a required pre-requisite for these
 constexpr uint16_t change_wing = PinConf::BT_A;
@@ -78,5 +88,7 @@ constexpr uint16_t toggle_auto_hid = PinConf::FX_R;
 
 constexpr uint16_t led_reset = PinConf::EX_1 | PinConf::EX_2 | PinConf::BT_B | PinConf::BT_C;
 
+// Cons without an EX_3 can't use this. This is a purely extra feature though, so that's probably
+// okay.
 constexpr uint16_t macro_key = PinConf::EX_3;
 }  // namespace KeyMap

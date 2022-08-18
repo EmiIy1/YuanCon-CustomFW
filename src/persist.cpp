@@ -3,6 +3,9 @@
 #define FLASH_DEBUG 0
 #include <FlashStorage_SAMD.h>
 
+// During development it helps to not burn through flash cycles needlessly
+// #define DISABLE_PERSIST
+
 const persistent_data_t default_con_state{
     .led_mode = {
         led_laser_mode_white,
@@ -29,6 +32,7 @@ const persistent_data_t default_con_state{
 persistent_data_t con_state = default_con_state;
 
 void load_con_state() {
+#ifndef DISABLE_PERSIST
     persistent_data_t loaded_data;
     uint8_t version;
     EEPROM.get(0, version);
@@ -38,8 +42,10 @@ void load_con_state() {
         return;
     }
     EEPROM.get(1, con_state);
+#endif
 }
 void save_con_state() {
+#ifndef DISABLE_PERSIST
     // Reads are cheap, writes are expensive. Let's check we actually have any reason to write
     // before we do!
     uint8_t version;
@@ -55,4 +61,5 @@ void save_con_state() {
     EEPROM.put(0, PERSIST_DATA_VERSION);
     EEPROM.put(1, con_state);
     EEPROM.commit();
+#endif
 }

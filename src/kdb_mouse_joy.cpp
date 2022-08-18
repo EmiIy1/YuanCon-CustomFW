@@ -16,24 +16,24 @@ void do_keyboard() {
 }
 
 void do_mouse() {
-    MiniMouse.move(vol_delta_x, vol_delta_y);
-    vol_delta_x = vol_delta_y = 0;
-
-    // Reset these for anything that uses them
-    vol_x_dir = vol_y_dir = 0;
+    MiniMouse.move(VolX.delta, VolY.delta);
+    VolX.ticked();
+    VolY.ticked();
 }
 
-constexpr uint8_t axis_speed = 75;
+constexpr float encoder_ppr = 360.0;
+constexpr float encoder_scale = 0xffff / (encoder_ppr * 2);
+
 void do_joystick(bool absolute) {
     if (absolute) {
-        MiniGamepad.report.vol_x = vol_x * axis_speed;
-        MiniGamepad.report.vol_y = vol_y * axis_speed;
+        MiniGamepad.report.vol_x = VolX.val * encoder_scale;
+        MiniGamepad.report.vol_y = VolY.val * encoder_scale;
     } else {
-        MiniGamepad.report.vol_x = vol_x_dir > 0 ? 0x7fff : vol_x_dir < 0 ? -0x8000 : 0;
-        MiniGamepad.report.vol_y = vol_y_dir > 0 ? 0x7fff : vol_y_dir < 0 ? -0x8000 : 0;
+        MiniGamepad.report.vol_x = VolX.dir > 0 ? 0x7fff : VolX.dir < 0 ? -0x8000 : 0;
+        MiniGamepad.report.vol_y = VolY.dir > 0 ? 0x7fff : VolY.dir < 0 ? -0x8000 : 0;
     }
 
-    vol_x_dir = vol_y_dir = 0;
+    VolX.dir = VolY.dir = 0;
 
     for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
         if (posedge_buttons & (1 << i)) MiniGamepad.report.buttons |= 1 << PinConf::gamepad_map[i];

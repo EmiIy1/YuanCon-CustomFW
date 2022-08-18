@@ -13,6 +13,7 @@ class CustomHID_ : public PluggableUSBModule {
     int SendReport(uint8_t id, const void* data, int len);
     void AppendDescriptor(HIDSubDescriptor* node);
     void AppendCallback(HIDCallback* callback);
+    uint8_t getShortName(char* name);
 
    protected:
     int getInterface(uint8_t* interfaceCount);
