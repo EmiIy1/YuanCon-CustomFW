@@ -101,9 +101,7 @@ void do_wing_upper_leds() {
     }
 
     led_wing_mode_t mode = con_state.led_mode.wing_upper;
-    if (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
-        mode = led_wing_mode_hid;
-    }
+    if (AutoHidOn()) mode = led_wing_mode_hid;
 
     switch (mode) {
         case led_wing_mode_hid:
@@ -151,9 +149,7 @@ void do_wing_lower_leds() {
     }
 
     led_wing_mode_t mode = con_state.led_mode.wing_lower;
-    if (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
-        mode = led_wing_mode_hid;
-    }
+    if (AutoHidOn()) mode = led_wing_mode_hid;
 
     switch (mode) {
         case led_wing_mode_hid:
@@ -202,9 +198,7 @@ void do_start_leds() {
     }
 
     led_start_mode_t mode = con_state.led_mode.start;
-    if (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
-        mode = led_start_mode_hid;
-    }
+    if (AutoHidOn()) mode = led_start_mode_hid;
 
     switch (mode) {
         case led_start_mode_rainbow:
@@ -364,9 +358,7 @@ void do_button_leds() {
     button_leds = 0;
 
     led_button_mode_t mode = con_state.led_mode.buttons;
-    if (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT) {
-        mode = led_button_mode_mixed;
-    }
+    if (AutoHidOn()) mode = led_button_mode_mixed;
 
     switch (mode) {
         case led_button_mode_live:
@@ -406,10 +398,24 @@ void do_leds() {
     do_start_leds();
     do_laser_leds();
 
-    FastLED.setBrightness(led_brightness);
-    // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that this call is unreasonably
-    // ! espensive.
-    FastLED.show();
+    static bool leds_were_off = false;
+
+    // If LEDs aren't being used, make sure they're blank, then stop writing to them.
+    if (LEDs_are_off()) {
+        if (!leds_were_off) {
+            leds_were_off = true;
+
+            blank_led();
+            FastLED.show();
+        }
+    } else {
+        leds_were_off = false;
+
+        FastLED.setBrightness(led_brightness);
+        // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that this call is unreasonably
+        // ! espensive.
+        FastLED.show();
+    }
 
     led_animation_frame += 3;
 

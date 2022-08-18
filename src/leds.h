@@ -47,6 +47,14 @@ extern led_mode_config_t* led_quick_dial[4];
      con_state.led_mode.wing_upper == led_wing_mode_colour || \
      con_state.led_mode.wing_lower == led_wing_mode_colour)
 
+#define AutoHidOn() (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT)
+
+#define LEDs_are_off()                                      \
+    (con_state.led_mode.lasers == led_laser_mode_none &&    \
+     con_state.led_mode.start == led_start_mode_none &&     \
+     con_state.led_mode.wing_upper == led_wing_mode_none && \
+     con_state.led_mode.wing_lower == led_wing_mode_none && !AutoHidOn())
+
 extern uint16_t button_leds;
 
 void setup_leds();
