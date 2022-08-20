@@ -6,13 +6,9 @@
 // During development it helps to not burn through flash cycles needlessly
 // #define DISABLE_PERSIST
 
-const persistent_data_t default_con_state{
+const persistent_data_t default_con_state {
     .led_mode = {
         led_laser_mode_white,
-        led_start_mode_none,
-        led_wing_mode_rainbow,
-        led_wing_mode_rainbow,
-        led_button_mode_live,
     },
     .led_solid_l = {
         CHSV(0, 255, 255),
@@ -28,6 +24,23 @@ const persistent_data_t default_con_state{
     .reactive_buttons = true,
     .con_mode = con_mode_mixed,
     .keymap = { 'd', 'f', 'j', 'k', 'v', 'n', 't', 'q', 'a', 'z' },
+    .button_lights = led_button_mode_live,
+    .zone_colours = {
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+        CHSV(0, 255, 255),
+    },
+    .zone_modes = {
+        led_zone_mode_rainbow,
+        led_zone_mode_rainbow,
+        led_zone_mode_rainbow,
+        led_zone_mode_rainbow,
+        led_zone_mode_rainbow,
+        led_zone_mode_rainbow,
+    },
 };
 persistent_data_t con_state = default_con_state;
 

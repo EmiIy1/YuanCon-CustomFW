@@ -17,7 +17,7 @@ typedef union {
 } RGBLed;
 
 constexpr uint8_t NUMBER_OF_SINGLE = 7;
-constexpr uint8_t NUMBER_OF_RGB = 5;  // four wing + woofer
+constexpr uint8_t NUMBER_OF_RGB = 6;
 
 extern bool hid_dirty;
 extern unsigned long last_hid;

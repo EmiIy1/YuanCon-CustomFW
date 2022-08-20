@@ -5,7 +5,7 @@
 #include "Custom-HID.h"
 #include "IDs.h"
 
-HID_LedsReport_Data_t hid_led_data;
+HID_LedsReport_Data_t hid_led_data = { 0 };
 bool hid_dirty = false;
 unsigned long last_hid = 0;
 
@@ -42,6 +42,7 @@ static const uint8_t _hidReportLEDs[] PROGMEM = {
     HID_ThreeLEDs(13),
     HID_ThreeLEDs(16),
     HID_ThreeLEDs(19),
+    HID_ThreeLEDs(22),
 
     // BTools needs at least 1 input to work properly
     HID_USAGE_MINIMUM(1, 1),

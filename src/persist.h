@@ -22,6 +22,10 @@ typedef struct {
     bool reactive_buttons;
     con_mode_t con_mode;
     char keymap[len(PinConf::buttons)];
+
+    led_button_mode_t button_lights;
+    CHSV zone_colours[6];
+    led_zone_mode_t zone_modes[6];
 } persistent_data_t;
 
 extern const persistent_data_t default_con_state;

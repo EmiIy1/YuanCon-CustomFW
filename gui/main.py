@@ -1,6 +1,4 @@
-import struct
-from typing import List
-from dataclasses import dataclass
+import ctypes
 
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -30,17 +28,79 @@ def find_yuan_port():
     return None
 
 
-@dataclass
-class ConInfo:
-    _FORMAT = "5B3B3B3B3B3B3BBBB10B"
+class Struct(ctypes.Structure):
+    def __str__(self):
+        ret = ""
 
-    led_mode: List[int]
-    led_solid_l: List[List[int]]
-    led_solid_r: List[List[int]]
-    auto_hid: bool
-    reactive_buttons: bool
-    con_mode: int
-    keymap: List[int]
+        def append_value(val, indent=True):
+            ret = ""
+
+            if isinstance(val, Struct):
+                val = str(val)
+                ret += "\n"
+                for line in val.split("\n"):
+                    ret += ("  " if indent else "") + line + "\n"
+            elif hasattr(val, "__len__"):
+                for i in val:
+                    ret += "\n-"
+                    lines = append_value(i, False).strip("\n").split("\n")
+                    for n, line in enumerate(lines):
+                        ret += (" " if n == 0 else "  ") + line
+                        if n != len(lines) - 1:
+                            ret += "\n"
+                ret += "\n"
+            else:
+                ret += (" " if indent else "") + str(val) + "\n"
+
+            return ret
+
+        for name, type_ in self._fields_:
+            ret += name + ":"
+            ret += append_value(getattr(self, name))
+        return ret.strip("\n")
+
+
+class LedModeInfo(Struct):
+    _fields_ = [
+        ('lasers', ctypes.c_uint8),
+        ('start', ctypes.c_uint8),
+        ('wing_upper', ctypes.c_uint8),
+        ('wing_lower', ctypes.c_uint8),
+        ('buttons', ctypes.c_uint8),
+    ]
+
+
+class CHSV(Struct):
+    _fields_ = [
+        ('h', ctypes.c_uint8),
+        ('s', ctypes.c_uint8),
+        ('v', ctypes.c_uint8),
+    ]
+
+
+class ConInfo(Struct):
+    _fields_ = [
+        ('led_mode', LedModeInfo),
+        ('led_solid_l', CHSV * 3),
+        ('led_solid_r', CHSV * 3),
+        ('auto_hid', ctypes.c_bool),
+        ('reactive_buttons', ctypes.c_bool),
+        ('con_mode', ctypes.c_uint8),
+        ('keymap', ctypes.c_char * 10),
+    ]
+
+
+# @dataclass
+# class ConInfo:
+#     _FORMAT = "5B3B3B3B3B3B3BBBB10B"
+
+#     led_mode: List[int]
+#     led_solid_l: List[List[int]]
+#     led_solid_r: List[List[int]]
+#     auto_hid: bool
+#     reactive_buttons: bool
+#     con_mode: int
+#     keymap: List[int]
 
 
 class Modal(tk.Toplevel):
@@ -176,9 +236,10 @@ class Colours(Modal):
 
     def idx_to_colour(self, idx):
         if idx < len(self.colours_left):
-            return hsv_to_rgb_hex(*self.colours_left[idx])
-
-        return hsv_to_rgb_hex(*self.colours_right[idx - len(self.colours_left)])
+            col = self.colours_left[idx]
+        else:
+            col = self.colours_right[idx - len(self.colours_left)]
+        return hsv_to_rgb_hex(col.h, col.s, col.v)
 
     def _pick_colour(self, idx):
         new = askcolor(color=self.idx_to_colour(idx))
@@ -189,9 +250,9 @@ class Colours(Modal):
         colour = [int((h / 360) * 255), int((s / 100) * 255), int((v / 100) * 255)]
 
         if idx < len(self.colours_left):
-            self.colours_left[idx] = colour
+            self.colours_left[idx] = CHSV(*colour)
         else:
-            self.colours_right[idx - len(self.colours_left)] = colour
+            self.colours_right[idx - len(self.colours_left)] = CHSV(*colour)
 
         self.frames[idx].configure(background=hex_)
 
@@ -208,7 +269,11 @@ class Keybinds(Modal):
         self.buttons = [None] * len(bindings)
 
         def add_btn(idx, col, row, span=1):
-            btn = ttk.Button(self, text=f"{self.LABELS[idx]} ({chr(bindings[idx])})", command=lambda *_: self._pick_key(idx, self.LABELS[idx]))
+            btn = ttk.Button(
+                self,
+                text=f"{self.LABELS[idx]} ({chr(bindings[idx])})",
+                command=lambda *_: self._pick_key(idx, self.LABELS[idx])
+            )
             btn.grid(column=col, row=row, columnspan=span)
             self.buttons[idx] = btn
 
@@ -227,12 +292,12 @@ class Keybinds(Modal):
         tk.Frame(self, height=40).grid(column=0, row=5, columnspan=4)
         ttk.Button(self, text="Done", command=lambda *_: self._close()).grid(column=3, row=6)
 
-        self.bindings = bindings
+        self.bindings = list(bindings)
         self.callback = callback
 
     def _close(self):
         super()._close()
-        self.callback()
+        self.callback(self.bindings)
 
     def _pick_key(self, index, label):
         Keybinder(self, label, self.bindings[index], self._cb(index))
@@ -346,7 +411,11 @@ class GUI:
         Colours(self.root, self._con_info.led_solid_l, self._con_info.led_solid_r, self._set_info)
 
     def _do_keybinds(self):
-        Keybinds(self.root, self._con_info.keymap, self._set_info)
+        Keybinds(self.root, self._con_info.keymap, self._keybinds_cb)
+
+    def _keybinds_cb(self, keymap):
+        self._con_info.keymap = bytes(keymap)
+        self._set_info()
 
     def _get_info(self):
         if self._serial is None:
@@ -358,43 +427,26 @@ class GUI:
         config = self._serial.read(size)
         # TODO: Nicer, lol.
         assert version == PERSIST_DATA_VERSION
+        assert size == ctypes.sizeof(ConInfo)
 
-        config = list(struct.unpack(ConInfo._FORMAT, config))
-        self._con_info = ConInfo(
-            config[0:5],
-            [
-                config[5:8],
-                config[8:11],
-                config[11:14],
-            ],
-            [
-                config[14:17],
-                config[17:20],
-                config[20:23],
-            ],
-            config[23],
-            config[24],
-            config[25],
-            config[25:35],
-        )
+        self._con_info = ConInfo.from_buffer_copy(config)
 
         if self._con_info.con_mode == 0:
             self.ekb_btn.configure(state="normal")
         else:
             self.ekb_btn.configure(state="disabled")
 
-        print(self._con_info)
-
         try:
-            self.led_laser_combo.current(self._con_info.led_mode[0])
-            self.led_start_combo.current(self._con_info.led_mode[1])
-            self.led_wing_upper_combo.current(self._con_info.led_mode[2])
-            self.led_wing_lower_combo.current(self._con_info.led_mode[3])
-            self.led_button_combo.current(self._con_info.led_mode[4])
+            self.led_laser_combo.current(self._con_info.led_mode.lasers)
+            self.led_start_combo.current(self._con_info.led_mode.start)
+            self.led_wing_upper_combo.current(self._con_info.led_mode.wing_upper)
+            self.led_wing_lower_combo.current(self._con_info.led_mode.wing_lower)
+            self.led_button_combo.current(self._con_info.led_mode.buttons)
             self.auto_hid_iv.set(self._con_info.auto_hid)
             self.reactive_buttons_iv.set(self._con_info.reactive_buttons)
             self.con_mode_combo.current(self._con_info.con_mode)
-        except:
+        except Exception:
+            raise
             # TODO: More granular
             pass
 
@@ -402,33 +454,17 @@ class GUI:
         if self._serial is None:
             return
 
-        self._con_info.led_mode = (
-            self.led_laser_combo.current(),
-            self.led_start_combo.current(),
-            self.led_wing_upper_combo.current(),
-            self.led_wing_lower_combo.current(),
-            self.led_button_combo.current(),
-        )
+        self._con_info.led_mode.lasers = self.led_laser_combo.current()
+        self._con_info.led_mode.start = self.led_start_combo.current()
+        self._con_info.led_mode.wing_upper = self.led_wing_upper_combo.current()
+        self._con_info.led_mode.wing_lower = self.led_wing_lower_combo.current()
+        self._con_info.led_mode.buttons = self.led_button_combo.current()
         self._con_info.auto_hid = self.auto_hid_iv.get()
         self._con_info.reactive_buttons = self.reactive_buttons_iv.get()
         self._con_info.con_mode = self.con_mode_combo.current()
 
         self._serial.write(b"S")
-        config = struct.pack(
-            ConInfo._FORMAT,
-            *self._con_info.led_mode,
-            *self._con_info.led_solid_l[0],
-            *self._con_info.led_solid_l[1],
-            *self._con_info.led_solid_l[2],
-            *self._con_info.led_solid_r[0],
-            *self._con_info.led_solid_r[1],
-            *self._con_info.led_solid_r[2],
-            self._con_info.auto_hid,
-            self._con_info.reactive_buttons,
-            self._con_info.con_mode,
-            *self._con_info.keymap,
-        )
-        self._serial.write(config)
+        self._serial.write(bytes(self._con_info))
         assert self._serial.read(1) == b"S"
 
         # We might as well

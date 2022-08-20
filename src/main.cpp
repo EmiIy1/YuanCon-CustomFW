@@ -51,18 +51,22 @@ void handle_ex_buttons() {
         }
     } else if (buttons & KeyMap::led_mode) {
         if (posedge_buttons & KeyMap::change_wing) {
-            if ((++*((uint8_t *)&con_state.led_mode.wing_upper)) == _no_led_wing_modes)
-                con_state.led_mode.wing_upper = (led_wing_mode_t)0;
+            if ((++*((uint8_t *)&con_state.zone_modes[LedZoneWTL])) == _no_led_zone_modes)
+                con_state.zone_modes[LedZoneWTL] = (led_zone_mode_t)0;
 
-            con_state.led_mode.wing_lower = con_state.led_mode.wing_upper;
+            con_state.zone_modes[LedZoneWTR] = con_state.zone_modes[LedZoneWTL];
+            con_state.zone_modes[LedZoneWBL] = con_state.zone_modes[LedZoneWTL];
+            con_state.zone_modes[LedZoneWBR] = con_state.zone_modes[LedZoneWTL];
         }
         if (posedge_buttons & KeyMap::change_start) {
-            if ((++*((uint8_t *)&con_state.led_mode.start)) == _no_led_start_modes)
-                con_state.led_mode.start = (led_start_mode_t)0;
+            if ((++*((uint8_t *)&con_state.zone_modes[LedZoneSL])) == _no_led_zone_modes)
+                con_state.zone_modes[LedZoneSL] = (led_zone_mode_t)0;
+
+            con_state.zone_modes[LedZoneSR] = con_state.zone_modes[LedZoneSL];
         }
         if (posedge_buttons & KeyMap::change_buttons) {
-            if ((++*((uint8_t *)&con_state.led_mode.buttons)) == _no_led_button_modes)
-                con_state.led_mode.buttons = (led_button_mode_t)0;
+            if ((++*((uint8_t *)&con_state.button_lights)) == _no_led_button_modes)
+                con_state.button_lights = (led_button_mode_t)0;
         }
         if (posedge_buttons & KeyMap::change_lasers) {
             if ((++*((uint8_t *)&con_state.led_mode.lasers)) == _no_led_laser_modes)
@@ -77,9 +81,9 @@ void handle_ex_buttons() {
         }
 
         button_leds = 0;
-        if (buttons & KeyMap::change_wing) button_leds |= (1 << con_state.led_mode.wing_upper);
-        if (buttons & KeyMap::change_start) button_leds |= (1 << con_state.led_mode.start);
-        if (buttons & KeyMap::change_buttons) button_leds |= (1 << con_state.led_mode.buttons);
+        if (buttons & KeyMap::change_wing) button_leds |= (1 << con_state.zone_modes[LedZoneWTL]);
+        if (buttons & KeyMap::change_start) button_leds |= (1 << con_state.zone_modes[LedZoneSL]);
+        if (buttons & KeyMap::change_buttons) button_leds |= (1 << con_state.button_lights);
         if (buttons & KeyMap::change_lasers) button_leds |= (1 << con_state.led_mode.lasers);
 
         if (con_state.auto_hid) button_leds |= KeyMap::toggle_auto_hid;
@@ -151,7 +155,7 @@ void handle_macro_keys() {
 
     // Decrease sens by a lot
     static uint8_t tick = 0;
-    if ((++tick) == 20) {
+    if ((++tick) == 10) {
         tick = 0;
         if (VolX.dir < 0) MiniConsumer.write(MEDIA_VOLUME_DOWN);
         if (VolX.dir > 0) MiniConsumer.write(MEDIA_VOLUME_UP);
@@ -315,6 +319,8 @@ void loop() {
         default:
             break;
     }
+    // Reset for the next tick
+    VolX.dir = VolY.dir = 0;
 
     write_button_leds();
 

@@ -10,19 +10,12 @@ typedef enum : uint8_t {
     _no_led_laser_modes,
 } led_laser_mode_t;
 typedef enum : uint8_t {
-    led_start_mode_rainbow = 0,
-    led_start_mode_colour,
-    led_start_mode_hid,
-    led_start_mode_none,
-    _no_led_start_modes,
-} led_start_mode_t;
-typedef enum : uint8_t {
-    led_wing_mode_rainbow = 0,
-    led_wing_mode_colour,
-    led_wing_mode_hid,
-    led_wing_mode_none,
-    _no_led_wing_modes,
-} led_wing_mode_t;
+    led_zone_mode_rainbow = 0,
+    led_zone_mode_colour,
+    led_zone_mode_hid,
+    led_zone_mode_none,
+    _no_led_zone_modes,
+} led_zone_mode_t;
 typedef enum : uint8_t {
     led_button_mode_live = 0,
     led_button_mode_hid,
@@ -32,28 +25,42 @@ typedef enum : uint8_t {
 } led_button_mode_t;
 typedef struct {
     led_laser_mode_t lasers;
-    led_start_mode_t start;
-    led_wing_mode_t wing_upper;
-    led_wing_mode_t wing_lower;
-    led_button_mode_t buttons;
 } led_mode_config_t;
 
-extern led_mode_config_t builtin_modes[];
-extern led_mode_config_t* led_quick_dial[4];
+/*
+The LED zones are:
 
-#define LED_has_colour()                                      \
-    (con_state.led_mode.lasers == led_laser_mode_colour ||    \
-     con_state.led_mode.start == led_start_mode_colour ||     \
-     con_state.led_mode.wing_upper == led_wing_mode_colour || \
-     con_state.led_mode.wing_lower == led_wing_mode_colour)
+() 0   ^   3 ()
+   1 [BTs] 4
+   2 [FXs] 5
+*/
+#define LedZoneSL 0
+#define LedZoneWTL 1
+#define LedZoneWBL 2
+#define LedZoneSR 3
+#define LedZoneWTR 4
+#define LedZoneWBR 5
+constexpr uint8_t hid_zones[] = { 4, 0, 1, 5, 2, 3 };
 
-#define AutoHidOn() (con_state.auto_hid && last_hid && millis() - last_hid < AUTO_HID_TIMEOUT)
+#define LED_has_colour()                                   \
+    (con_state.led_mode.lasers == led_laser_mode_colour || \
+     con_state.zone_modes[0] == led_zone_mode_colour ||    \
+     con_state.zone_modes[1] == led_zone_mode_colour ||    \
+     con_state.zone_modes[2] == led_zone_mode_colour ||    \
+     con_state.zone_modes[3] == led_zone_mode_colour ||    \
+     con_state.zone_modes[4] == led_zone_mode_colour ||    \
+     con_state.zone_modes[5] == led_zone_mode_colour)
 
-#define LEDs_are_off()                                      \
-    (con_state.led_mode.lasers == led_laser_mode_none &&    \
-     con_state.led_mode.start == led_start_mode_none &&     \
-     con_state.led_mode.wing_upper == led_wing_mode_none && \
-     con_state.led_mode.wing_lower == led_wing_mode_none && !AutoHidOn())
+#define AutoHidOn() (con_state.auto_hid && last_hid && (millis() - last_hid < AUTO_HID_TIMEOUT))
+
+#define LEDs_are_off()                                   \
+    (con_state.led_mode.lasers == led_laser_mode_none && \
+     con_state.zone_modes[0] == led_zone_mode_none &&    \
+     con_state.zone_modes[1] == led_zone_mode_none &&    \
+     con_state.zone_modes[2] == led_zone_mode_none &&    \
+     con_state.zone_modes[3] == led_zone_mode_none &&    \
+     con_state.zone_modes[4] == led_zone_mode_none &&    \
+     con_state.zone_modes[5] == led_zone_mode_none && !AutoHidOn())
 
 extern uint16_t button_leds;
 

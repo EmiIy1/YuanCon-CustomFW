@@ -33,8 +33,6 @@ void do_joystick(bool absolute) {
         MiniGamepad.report.vol_y = VolY.dir > 0 ? 0x7fff : VolY.dir < 0 ? -0x8000 : 0;
     }
 
-    VolX.dir = VolY.dir = 0;
-
     for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
         if (posedge_buttons & (1 << i)) MiniGamepad.report.buttons |= 1 << PinConf::gamepad_map[i];
         if (negedge_buttons & (1 << i))

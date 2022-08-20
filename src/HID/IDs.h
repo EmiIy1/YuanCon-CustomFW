@@ -30,7 +30,10 @@ constexpr const char* HID_strings[] = {
     "Wing Right Low",
     NULL,
     NULL,
-    "Top LEDs",
+    "Top LEDs Left",
+    NULL,
+    NULL,
+    "Top LEDs Right",
     NULL,
     NULL,
     // Extra strings
@@ -39,5 +42,5 @@ constexpr const char* HID_strings[] = {
 // Start indecies in HID_strings
 constexpr uint8_t HID_strings_leds = HID_Strings_Base + 0;
 constexpr uint8_t HID_strings_rgb = HID_Strings_Base + 7;
-constexpr uint8_t HID_strings_rgb_end = HID_Strings_Base + 22;
-constexpr uint8_t HID_strings_pico = HID_Strings_Base + 22;
+constexpr uint8_t HID_strings_rgb_end = HID_Strings_Base + 25;
+constexpr uint8_t HID_strings_pico = HID_Strings_Base + 25;
