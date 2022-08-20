@@ -7,6 +7,8 @@ from tkinter.colorchooser import askcolor
 import serial
 import serial.tools.list_ports
 
+from persist import ConInfo, CHSV
+
 
 VID = 0x1ccf
 PID = 0x101c
@@ -26,81 +28,6 @@ def find_yuan_port():
 
         return port.name
     return None
-
-
-class Struct(ctypes.Structure):
-    def __str__(self):
-        ret = ""
-
-        def append_value(val, indent=True):
-            ret = ""
-
-            if isinstance(val, Struct):
-                val = str(val)
-                ret += "\n"
-                for line in val.split("\n"):
-                    ret += ("  " if indent else "") + line + "\n"
-            elif hasattr(val, "__len__"):
-                for i in val:
-                    ret += "\n-"
-                    lines = append_value(i, False).strip("\n").split("\n")
-                    for n, line in enumerate(lines):
-                        ret += (" " if n == 0 else "  ") + line
-                        if n != len(lines) - 1:
-                            ret += "\n"
-                ret += "\n"
-            else:
-                ret += (" " if indent else "") + str(val) + "\n"
-
-            return ret
-
-        for name, type_ in self._fields_:
-            ret += name + ":"
-            ret += append_value(getattr(self, name))
-        return ret.strip("\n")
-
-
-class LedModeInfo(Struct):
-    _fields_ = [
-        ('lasers', ctypes.c_uint8),
-        ('start', ctypes.c_uint8),
-        ('wing_upper', ctypes.c_uint8),
-        ('wing_lower', ctypes.c_uint8),
-        ('buttons', ctypes.c_uint8),
-    ]
-
-
-class CHSV(Struct):
-    _fields_ = [
-        ('h', ctypes.c_uint8),
-        ('s', ctypes.c_uint8),
-        ('v', ctypes.c_uint8),
-    ]
-
-
-class ConInfo(Struct):
-    _fields_ = [
-        ('led_mode', LedModeInfo),
-        ('led_solid_l', CHSV * 3),
-        ('led_solid_r', CHSV * 3),
-        ('auto_hid', ctypes.c_bool),
-        ('reactive_buttons', ctypes.c_bool),
-        ('con_mode', ctypes.c_uint8),
-        ('keymap', ctypes.c_char * 10),
-    ]
-
-
-# @dataclass
-# class ConInfo:
-#     _FORMAT = "5B3B3B3B3B3B3BBBB10B"
-
-#     led_mode: List[int]
-#     led_solid_l: List[List[int]]
-#     led_solid_r: List[List[int]]
-#     auto_hid: bool
-#     reactive_buttons: bool
-#     con_mode: int
-#     keymap: List[int]
 
 
 class Modal(tk.Toplevel):
@@ -204,14 +131,13 @@ class Colours(Modal):
     FONT = ("SegoeUI", 10)
     LABELS = ["Zone 1", "Zone 2", "Zone 3", "Zone 1", "Zone 2", "Zone 3"]
 
-    def __init__(self, parent, colours_left, colours_right, callback):
+    def __init__(self, parent, colours, callback):
         super().__init__(parent)
         self.title("Select colours")
         self.resizable(0, 0)
 
-        self.colours_left = colours_left
-        self.colours_right = colours_right
-        self.frames = [None] * (len(colours_left) + len(colours_right))
+        self.colours = colours
+        self.frames = [None] * len(colours)
 
         def add_btn(idx, col, row):
             f = tk.Frame(self, background=self.idx_to_colour(idx))
@@ -235,10 +161,7 @@ class Colours(Modal):
         self.callback()
 
     def idx_to_colour(self, idx):
-        if idx < len(self.colours_left):
-            col = self.colours_left[idx]
-        else:
-            col = self.colours_right[idx - len(self.colours_left)]
+        col = self.colours[idx]
         return hsv_to_rgb_hex(col.h, col.s, col.v)
 
     def _pick_colour(self, idx):
@@ -249,11 +172,7 @@ class Colours(Modal):
         h, s, v = rgb_to_hsv(r / 255, g / 255, b / 255)
         colour = [int((h / 360) * 255), int((s / 100) * 255), int((v / 100) * 255)]
 
-        if idx < len(self.colours_left):
-            self.colours_left[idx] = CHSV(*colour)
-        else:
-            self.colours_right[idx - len(self.colours_left)] = CHSV(*colour)
-
+        self.colours[idx] = CHSV(*colour)
         self.frames[idx].configure(background=hex_)
 
 
@@ -334,19 +253,19 @@ class GUI:
             "Solid colour",
             "HID lighting",
             "Disabled",
-        ))
+        ), True)
         self.led_wing_upper_combo = self._make_combo(self.df, "Upper wing lighting mode", (
             "Rainbow",
             "Solid colour",
             "HID lighting",
             "Disabled",
-        ))
+        ), True)
         self.led_wing_lower_combo = self._make_combo(self.df, "Lower wing lighting mode", (
             "Rainbow",
             "Solid colour",
             "HID lighting",
             "Disabled",
-        ))
+        ), True)
         self.led_button_combo = self._make_combo(self.df, "Button lighting mode", (
             "React to button presses",
             "HID lighting",
@@ -398,17 +317,33 @@ class GUI:
         self._con_info: ConInfo = None
         self.root.after(0, self.detect_device)
 
-    def _make_combo(self, parent, label, options):
+    def _make_combo(self, parent, label, options, pair=False):
         tk.Label(parent, text=label, font=self.FONT, anchor=tk.W).pack(expand=True, fill=tk.X)
-        combo = ttk.Combobox(parent)
-        combo["values"] = options
-        combo["state"] = "readonly"
-        combo.bind('<<ComboboxSelected>>', lambda *_: self._set_info())
-        combo.pack(expand=True, fill=tk.X)
-        return combo
+
+        f = tk.Frame(parent)
+        f.pack(expand=True, fill=tk.X)
+
+        f.columnconfigure(0, weight=1)
+
+        combo1 = ttk.Combobox(f)
+        combo1["values"] = options
+        combo1["state"] = "readonly"
+        combo1.bind('<<ComboboxSelected>>', lambda *_: self._set_info())
+        combo1.grid(row=0, column=0, sticky="we")
+        if not pair:
+            return combo1
+
+        f.columnconfigure(1, weight=1)
+        combo2 = ttk.Combobox(f)
+        combo2["values"] = options
+        combo2["state"] = "readonly"
+        combo2.bind('<<ComboboxSelected>>', lambda *_: self._set_info())
+        combo2.grid(row=0, column=1, sticky="we", padx=(5, 0))
+
+        return combo1, combo2
 
     def _do_colours(self):
-        Colours(self.root, self._con_info.led_solid_l, self._con_info.led_solid_r, self._set_info)
+        Colours(self.root, self._con_info.zone_colours, self._set_info)
 
     def _do_keybinds(self):
         Keybinds(self.root, self._con_info.keymap, self._keybinds_cb)
@@ -437,11 +372,18 @@ class GUI:
             self.ekb_btn.configure(state="disabled")
 
         try:
+            self.led_start_combo[0].current(self._con_info.zone_modes[0])
+            self.led_start_combo[1].current(self._con_info.zone_modes[3])
+
+            self.led_wing_upper_combo[0].current(self._con_info.zone_modes[1])
+            self.led_wing_upper_combo[1].current(self._con_info.zone_modes[4])
+
+            self.led_wing_lower_combo[0].current(self._con_info.zone_modes[2])
+            self.led_wing_lower_combo[1].current(self._con_info.zone_modes[5])
+
             self.led_laser_combo.current(self._con_info.led_mode.lasers)
-            self.led_start_combo.current(self._con_info.led_mode.start)
-            self.led_wing_upper_combo.current(self._con_info.led_mode.wing_upper)
-            self.led_wing_lower_combo.current(self._con_info.led_mode.wing_lower)
-            self.led_button_combo.current(self._con_info.led_mode.buttons)
+            self.led_button_combo.current(self._con_info.button_lights)
+
             self.auto_hid_iv.set(self._con_info.auto_hid)
             self.reactive_buttons_iv.set(self._con_info.reactive_buttons)
             self.con_mode_combo.current(self._con_info.con_mode)
@@ -454,11 +396,17 @@ class GUI:
         if self._serial is None:
             return
 
+        self._con_info.zone_modes = (
+            self.led_start_combo[0].current(),
+            self.led_wing_upper_combo[0].current(),
+            self.led_wing_lower_combo[0].current(),
+            self.led_start_combo[1].current(),
+            self.led_wing_upper_combo[1].current(),
+            self.led_wing_lower_combo[1].current(),
+        )
         self._con_info.led_mode.lasers = self.led_laser_combo.current()
-        self._con_info.led_mode.start = self.led_start_combo.current()
-        self._con_info.led_mode.wing_upper = self.led_wing_upper_combo.current()
-        self._con_info.led_mode.wing_lower = self.led_wing_lower_combo.current()
-        self._con_info.led_mode.buttons = self.led_button_combo.current()
+        self._con_info.led_mode.button_lights = self.led_button_combo.current()
+
         self._con_info.auto_hid = self.auto_hid_iv.get()
         self._con_info.reactive_buttons = self.reactive_buttons_iv.get()
         self._con_info.con_mode = self.con_mode_combo.current()

@@ -15,7 +15,7 @@ CFW_VID_PID = (0x04D8, 0xE72E)
 def real_path(path):
     if getattr(sys, "frozen", False):
         return os.path.join(sys._MEIPASS, path)
-    return path
+    return os.path.join(os.path.dirname(__file__), path)
 
 
 def find_port(programming=False) -> Optional[str]:

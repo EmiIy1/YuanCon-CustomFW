@@ -1,12 +1,16 @@
 import subprocess
+import argparse
+import time
 import os
 import re
-import time
+
 from tkinter import Frame, Label, StringVar, Tk, messagebox, PhotoImage
 from tkinter.filedialog import askopenfilename
 from tkinter.ttk import Button, Entry, Progressbar
-from util import real_path, find_port, build_update_command
+
 import serial
+
+from util import real_path, find_port, build_update_command
 
 
 BOSSAC_PROGRESS_RE = re.compile(r"\[=* *\] \d+% \((\d+)/(\d+) pages\)")
@@ -14,6 +18,8 @@ BOSSAC_PROGRESS_RE = re.compile(r"\[=* *\] \d+% \((\d+)/(\d+) pages\)")
 
 class Flasher():
     def __init__(self):
+        self.args = self.parse_args()
+
         self.root = Tk()
         self.root.resizable = False
         self.root.title("Firmware Updater")
@@ -34,8 +40,8 @@ class Flasher():
 
         self.pb = Progressbar(controls)
         self.pb.grid(row=1, column=0, sticky="we", pady=2, padx=2)
-        self.flash = Button(controls, command=self.flash, text="Flash", state="disabled")
-        self.flash.grid(row=1, column=1, sticky="we", pady=2, padx=2)
+        self.flash_btn = Button(controls, command=self.flash, text="Flash", state="disabled")
+        self.flash_btn.grid(row=1, column=1, sticky="we", pady=2, padx=2)
 
         self.status = Label(controls)
         self.status.grid(row=2, column=0, columnspan=2, pady=(2, 0), padx=2)
@@ -43,6 +49,29 @@ class Flasher():
         controls.grid(pady=(0, 15), row=1)
 
         self.com = None
+
+        print([self.args.firmware])
+
+        if self.args.firmware:
+            self.fw_path.insert("end", self.args.firmware)
+            if self.args.auto:
+                self.root.after(0, self.flash)
+
+    def parse_args(self):
+        parser = argparse.ArgumentParser(description="YuanCon firmware updater")
+        parser.add_argument("firmware", type=str, nargs="?", help="Path to firmware '.bin' file")
+
+        parser.add_argument(
+            "-a", "--auto", action="store_true",
+            help="Automatically begin uploading (must be used with a firmware path)")
+        parser.add_argument(
+            "-c", "--close_after", action="store_true",
+            help="Close after succesfully uploading")
+        # parser.add_argument(
+        #     "-n", "--no_gui", action="store_true",
+        #     help="Upload without showing the GUI")
+
+        return parser.parse_args()
 
     def _com_check(self):
         prog = find_port(True)
@@ -63,6 +92,9 @@ class Flasher():
         self.fw_path_cb()
         self.pb.configure(value=0)
 
+        if self.args.close_after:
+            self.root.destroy()
+
     def _got_com(self, name, is_programming):
         # If this COM was just plugged in, it needs a moment to start existing
         time.sleep(0.2)
@@ -79,9 +111,9 @@ class Flasher():
                 self.root.update()
                 time.sleep(0.1)
             else:
-                self._update_done()
                 self.root.update()
                 messagebox.showerror("Update", "Controller didn't respond. Please try again.")
+                self._update_done()
                 return
 
             # Give the COM a moment to actually wake up
@@ -112,14 +144,15 @@ class Flasher():
                     self.status.configure(text=line)
                     print(line, end="", flush=True)
                     self.root.update()
+        if not (self.args.auto and self.args.close_after):
+            messagebox.showinfo("Update", "Update completed")
         self._update_done()
-        messagebox.showinfo("Update", "Update completed")
 
     def fw_path_cb(self):
         if os.path.isfile(self.fw_path.get()):
-            self.flash.configure(state="normal")
+            self.flash_btn.configure(state="normal")
         else:
-            self.flash.configure(state="disabled")
+            self.flash_btn.configure(state="disabled")
 
     def choose(self):
         filename = askopenfilename(title="Choose firmware", filetypes=(
@@ -136,7 +169,7 @@ class Flasher():
         self.status.configure(text="Waiting for controller...")
         self.fw_path.configure(state="disabled")
         self.fw_path_btn.configure(state="disabled")
-        self.flash.configure(state="disabled")
+        self.flash_btn.configure(state="disabled")
         self.root.after(0, self._com_check)
 
 
