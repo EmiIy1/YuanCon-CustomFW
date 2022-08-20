@@ -13,11 +13,18 @@ typedef enum : uint8_t {
 } con_mode_t;
 
 constexpr uint8_t PERSIST_DATA_VERSION = 1;
+
+typedef struct {
+    uint8_t delay;
+    char keys[32];
+} large_macro_t;
+typedef struct {
+    uint8_t delay;
+    char keys[10];
+} short_macro_t;
+
 typedef struct {
     led_mode_config_t led_mode;
-    // Zones are [start, top wing, lower wing]
-    CHSV led_solid_l[3];
-    CHSV led_solid_r[3];
     bool auto_hid;
     bool reactive_buttons;
     con_mode_t con_mode;
@@ -26,6 +33,11 @@ typedef struct {
     led_button_mode_t button_lights;
     CHSV zone_colours[6];
     led_zone_mode_t zone_modes[6];
+
+    large_macro_t large_macros[2];
+    short_macro_t short_macros[4];
+    uint8_t tiny_macro_speed;
+    uint8_t macro_layer[len(PinConf::buttons)];
 } persistent_data_t;
 
 extern const persistent_data_t default_con_state;

@@ -1,5 +1,7 @@
+import struct
 import subprocess
 import argparse
+import sys
 import time
 import os
 import re
@@ -10,7 +12,7 @@ from tkinter.ttk import Button, Entry, Progressbar
 
 import serial
 
-from util import real_path, find_port, build_update_command
+from util import real_path, find_port, build_update_command, BAUDRATE, SAMD21_DEVICE_ID
 
 
 BOSSAC_PROGRESS_RE = re.compile(r"\[=* *\] \d+% \((\d+)/(\d+) pages\)")
@@ -43,19 +45,22 @@ class Flasher():
         self.flash_btn = Button(controls, command=self.flash, text="Flash", state="disabled")
         self.flash_btn.grid(row=1, column=1, sticky="we", pady=2, padx=2)
 
-        self.status = Label(controls)
-        self.status.grid(row=2, column=0, columnspan=2, pady=(2, 0), padx=2)
+        self._status = Label(controls)
+        self._status.grid(row=2, column=0, columnspan=2, pady=(2, 0), padx=2)
 
         controls.grid(pady=(0, 15), row=1)
 
         self.com = None
 
-        print([self.args.firmware])
-
         if self.args.firmware:
             self.fw_path.insert("end", self.args.firmware)
             if self.args.auto:
                 self.root.after(0, self.flash)
+
+    def status(self, text):
+        print("I:" + text, file=sys.stderr, flush=True)
+        self._status.configure(text=text)
+        self.root.update()
 
     def parse_args(self):
         parser = argparse.ArgumentParser(description="YuanCon firmware updater")
@@ -86,7 +91,7 @@ class Flasher():
         self.root.after(100, self._com_check)
 
     def _update_done(self):
-        self.status.configure(text="")
+        self._status.configure(text="")
         self.fw_path.configure(state="normal")
         self.fw_path_btn.configure(state="normal")
         self.fw_path_cb()
@@ -95,12 +100,56 @@ class Flasher():
         if self.args.close_after:
             self.root.destroy()
 
+    def try_get_settings(self, name):
+        com = serial.Serial(name, baudrate=BAUDRATE)
+        com.write(b"V")
+        time.sleep(0.5)
+        if not com.in_waiting:
+            return None
+        version = b""
+        while not version.endswith(b"\r\n"):
+            version += com.read(1)
+        self.status(f"Version: {version.decode().strip()}")
+        self.root.update()
+
+        com.write(b"w41002018,4#")  # Get device id
+        device_id = struct.unpack("<I", com.read(4))[0]
+        if device_id != SAMD21_DEVICE_ID:
+            return None
+
+        com.write(b"s")
+        version = com.read(1)[0]
+        size = com.read(1)[0]
+        config = com.read(size)
+        return version, config
+
+    def try_write_settings(self, name, settings):
+        version, data = settings
+
+        # This is after an update, so we can trust the name a bit more
+        com = serial.Serial(name, baudrate=BAUDRATE)
+
+        com.write(b"s")
+        version_check = com.read(1)[0]
+        com.read(com.read(1)[0])  # We don't care for the default values
+
+        if version_check != version:
+            messagebox.showwarning("Update", "Version missmatch.\nSettings have not been restored.")
+            return
+
+        com.write(b"c" + data + b"C")
+
     def _got_com(self, name, is_programming):
         # If this COM was just plugged in, it needs a moment to start existing
         time.sleep(0.2)
 
+        if is_programming:
+            settings = None
+        else:
+            settings = self.try_get_settings(name)
+
         if not is_programming:
-            self.status.configure(text="Controller found. Switching to programming mode")
+            self.status("Controller found. Switching to programming mode")
             serial.Serial(name, 1200).close()
 
             start = time.time()
@@ -121,7 +170,8 @@ class Flasher():
                 self.root.update()
                 time.sleep(0.1)
 
-        self.status.configure(text=f"Using {name} for update")
+        self.status(f"Using {name} for update")
+
         # TODO: Basic sanity checks on the bin file
         cmd = build_update_command(name, self.fw_path.get())
 
@@ -134,16 +184,30 @@ class Flasher():
             if p.stdout:
                 for line in p.stdout:
                     match = BOSSAC_PROGRESS_RE.match(line)
-                    print(line, end="", flush=True)
                     if match:
+                        print(line, end="", flush=True, file=sys.stderr)
                         self.pb.configure(value=(int(match.group(1)) / int(match.group(2))) * 100)
                     elif line.strip():
-                        self.status.configure(text=line.strip())
+                        self.status(line.strip())
                     self.root.update()
                 for line in p.stderr:
-                    self.status.configure(text=line)
-                    print(line, end="", flush=True)
+                    self.status(line)
                     self.root.update()
+
+        if settings:
+            self.status("Restoring settings")
+            name = None
+            for _ in range(20):
+                self.root.update()
+                time.sleep(0.1)
+                name = find_port()
+                if name:
+                    break
+
+            if name:
+                time.sleep(0.2)
+                self.try_write_settings(name, settings)
+
         if not (self.args.auto and self.args.close_after):
             messagebox.showinfo("Update", "Update completed")
         self._update_done()
@@ -166,10 +230,10 @@ class Flasher():
         self.fw_path.insert("end", filename)
 
     def flash(self):
-        self.status.configure(text="Waiting for controller...")
         self.fw_path.configure(state="disabled")
         self.fw_path_btn.configure(state="disabled")
         self.flash_btn.configure(state="disabled")
+        self.status("Waiting for controller...")
         self.root.after(0, self._com_check)
 
 

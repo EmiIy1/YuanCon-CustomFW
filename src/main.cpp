@@ -96,13 +96,13 @@ void handle_ex_buttons() {
         led_change_tick = 0;
 
         if (!(buttons & KeyMap::led_mode) && buttons & KeyMap::led_colour && LED_has_colour()) {
-            // TODO: Come up with a way to change all three zones without PC configuration
-            con_state.led_solid_l[0].h += VolX.dir;
-            con_state.led_solid_l[1] = con_state.led_solid_l[0];
-            con_state.led_solid_l[2] = con_state.led_solid_l[0];
-            con_state.led_solid_r[0].h += VolY.dir;
-            con_state.led_solid_r[1] = con_state.led_solid_r[0];
-            con_state.led_solid_r[2] = con_state.led_solid_r[0];
+            // TODO: Come up with a way to change all six zones without PC configuration
+            con_state.zone_colours[0].h += VolX.dir;
+            con_state.zone_colours[1] = con_state.zone_colours[0];
+            con_state.zone_colours[2] = con_state.zone_colours[0];
+            con_state.zone_colours[3].h += VolY.dir;
+            con_state.zone_colours[4] = con_state.zone_colours[3];
+            con_state.zone_colours[5] = con_state.zone_colours[3];
         }
     }
 
@@ -114,43 +114,49 @@ void handle_ex_buttons() {
 }
 
 void handle_macro_keys() {
-    // TODO: Easy user-definable macros
+    for (uint8_t i = 0; i < len(con_state.macro_layer); i++) {
+        if (!con_state.macro_layer[i]) continue;
 
-    // Light up the buttons that have macros assigned
-    button_leds = PinConf::BT_A | PinConf::BT_B;
+        // Light up the buttons that have macros assigned
+        button_leds |= 1 << i;
 
-    if (posedge_buttons & PinConf::BT_A) {
-        MiniKeyboard.press(KEYPAD_ADD);
-        MiniKeyboard.write();
-        delay(100);
-        MiniKeyboard.release(KEYPAD_ADD);
-        MiniKeyboard.write();
-    }
+        if (!(posedge_buttons & (1 << i))) continue;
 
-    if (posedge_buttons & PinConf::BT_B) {
-        MiniKeyboard.press(KEYPAD_1);
-        MiniKeyboard.write();
-        delay(100);
-        MiniKeyboard.release(KEYPAD_1);
-        MiniKeyboard.write();
-        delay(100);
-        MiniKeyboard.press(KEYPAD_2);
-        MiniKeyboard.write();
-        delay(100);
-        MiniKeyboard.release(KEYPAD_2);
-        MiniKeyboard.write();
-        delay(100);
-        MiniKeyboard.press(KEYPAD_3);
-        MiniKeyboard.write();
-        delay(100);
-        MiniKeyboard.release(KEYPAD_3);
-        MiniKeyboard.write();
-        delay(100);
-        MiniKeyboard.press(KEYPAD_4);
-        MiniKeyboard.write();
-        delay(100);
-        MiniKeyboard.release(KEYPAD_4);
-        MiniKeyboard.write();
+        if (con_state.macro_layer[i] & 0x80) {
+            // Sequence macro
+
+            uint8_t idx = con_state.macro_layer[i] - 0x80;
+            if (idx < 2) {
+                for (uint8_t j = 0; j < len(con_state.large_macros[idx].keys); j++) {
+                    if (!con_state.large_macros[idx].keys[j]) break;
+
+                    MiniKeyboard.press(con_state.large_macros[idx].keys[j]);
+                    MiniKeyboard.write();
+                    delay(con_state.large_macros[idx].delay);
+                    MiniKeyboard.release(con_state.large_macros[idx].keys[j]);
+                    MiniKeyboard.write();
+                    delay(con_state.large_macros[idx].delay);
+                }
+            } else if (idx < 6) {
+                idx -= 2;
+                for (uint8_t j = 0; j < len(con_state.short_macros[idx].keys); j++) {
+                    if (!con_state.short_macros[idx].keys[j]) break;
+
+                    MiniKeyboard.press(con_state.short_macros[idx].keys[j]);
+                    MiniKeyboard.write();
+                    delay(con_state.short_macros[idx].delay);
+                    MiniKeyboard.release(con_state.short_macros[idx].keys[j]);
+                    MiniKeyboard.write();
+                    delay(con_state.short_macros[idx].delay);
+                }
+            }
+        } else {
+            MiniKeyboard.press(con_state.macro_layer[i]);
+            MiniKeyboard.write();
+            delay(con_state.tiny_macro_speed);
+            MiniKeyboard.release(con_state.macro_layer[i]);
+            MiniKeyboard.write();
+        }
     }
 
     // Decrease sens by a lot
@@ -221,7 +227,7 @@ void setup() {
         if (con_state.con_mode != old_cm) save_con_state();
     }
 
-    SerialUSB.begin(115200);
+    SerialUSB.begin(921600);
 
     MiniGamepad.begin();
     HIDLeds.begin();
@@ -230,17 +236,114 @@ void setup() {
     MiniKeyboard.begin();
 }
 
+#define SerialReadWord(variable)                                                           \
+    do {                                                                                   \
+        for (uint8_t i = 8; i--;) {                                                        \
+            /* we're only going to support upper case hex for now, and be very trusting */ \
+            uint8_t chr = SerialUSB.read();                                                \
+            if (chr >= 'A')                                                                \
+                variable |= ((chr - 'A') + 10) << (i * 4);                                 \
+            else                                                                           \
+                variable |= (chr - '0') << (i * 4);                                        \
+        }                                                                                  \
+    } while (0)
+
+bool do_samba(uint8_t prefix) {
+    switch (prefix) {
+        case 'N':
+            // Switch to non-interactive mode;
+            SerialUSB.write("\r\n");
+            return true;
+        case 'V':
+            // Get version string
+            SerialUSB.write("YuanCon " __DATE__ " " __TIME__ "\r\n");
+            return true;
+        case 'w': {
+            // Read word
+            uint32_t address = 0;
+            SerialReadWord(address);
+            SerialUSB.read();  // ','
+            SerialUSB.read();  // '4'
+            SerialUSB.read();  // '#'
+
+            uint32_t value = *(uint32_t *)(address);
+
+            for (uint8_t i = 0; i < 4; i++) SerialUSB.write((value >> (i * 8)) & 0xff);
+
+            // Would write interactively
+            // for (uint8_t i = 8; i--;) {
+            //     uint8_t nibble = ((value & (0b1111 << (i * 4))) >> (i * 4));
+            //     if (nibble > 9)
+            //         SerialUSB.write('A' + (nibble - 10));
+            //     else
+            //         SerialUSB.write('0' + nibble);
+            // }
+        }
+            return true;
+        case 'S': {
+            // Write lots of data
+            uint32_t address = 0;
+            SerialReadWord(address);
+            SerialUSB.read();  // ','
+            uint32_t length = 0;
+            SerialReadWord(length);
+            SerialUSB.read();  // '#'
+
+            while (length) {
+                *((uint8_t *)address) = SerialUSB.read();
+                address++;
+                length--;
+            }
+        }
+            return true;
+        case 'W': {
+            // Write word
+            uint32_t address = 0;
+            SerialReadWord(address);
+            SerialUSB.read();  // ','
+            uint32_t word_ = 0;
+            SerialReadWord(word_);
+            SerialUSB.read();  // '#'
+
+            *((uint32_t *)address) = word_;
+        }
+            return true;
+    }
+
+    return false;
+}
+
 void do_serial() {
     if (!SerialUSB.available()) return;
-    switch (SerialUSB.read()) {
-        case 'R': {
-            // Force a reboot into the bootloader by pretending we double tapped reset
 
-            // https://github.com/sparkfun/Arduino_Boards/blob/682926ef72078d7939c12ea886f20e48cd901cd3/sparkfun/samd/bootloaders/zero/board_definitions_sparkfun_samd21dev.h#L38
-            constexpr size_t BOOT_DOUBLE_TAP_ADDRESS = 0x20007FFCul;
-            constexpr uint32_t DOUBLE_TAP_MAGIC = 0x07738135;
-            *((uint32_t *)BOOT_DOUBLE_TAP_ADDRESS) = DOUBLE_TAP_MAGIC;
-        }
+    uint8_t prefix = SerialUSB.read();
+    if (do_samba(prefix)) return;
+
+    switch (prefix) {
+        case 'N':
+        case 'T':
+        case 'O':
+        case 'o':
+        case 'H':
+        case 'h':
+        case 'W':
+        case 'w':
+        case 'S':
+        case 'R':
+        case 'G':
+        case 'V':
+            // SAM-BA commands
+            break;
+
+        // case 'R': {
+        //     // Force a reboot into the bootloader by pretending we double tapped reset
+
+        //     // https://github.com/sparkfun/Arduino_Boards/blob/682926ef72078d7939c12ea886f20e48cd901cd3/sparkfun/samd/bootloaders/zero/board_definitions_sparkfun_samd21dev.h#L38
+        //     constexpr size_t BOOT_DOUBLE_TAP_ADDRESS = 0x20007FFCul;
+        //     constexpr uint32_t DOUBLE_TAP_MAGIC = 0x07738135;
+        //     *((uint32_t *)BOOT_DOUBLE_TAP_ADDRESS) = DOUBLE_TAP_MAGIC;
+        // }
+
         case 'r':
             // General reboot
             NVIC_SystemReset();
@@ -248,15 +351,16 @@ void do_serial() {
         case 's':
             // Get board config
             SerialUSB.write(PERSIST_DATA_VERSION);
+            // TODO: This is going to overflow 255 at some point!
             SerialUSB.write(sizeof con_state);
             SerialUSB.write((uint8_t *)&con_state, sizeof con_state);
             break;
-        case 'S':
+        case 'c':
             // Set board config
             SerialUSB.readBytes((uint8_t *)&con_state, sizeof con_state);
-            SerialUSB.write('S');
+            SerialUSB.write('c');
             break;
-        case 'c':
+        case 'l':
             // Clear board config
             memcpy(&con_state, &default_con_state, sizeof con_state);
             save_con_state();
@@ -264,7 +368,7 @@ void do_serial() {
             MiniKeyboard.releaseAll();
             MiniKeyboard.write();
             // TODO: Unpress gamepad buttons, once those are configurable
-            SerialUSB.write('c');
+            SerialUSB.write('l');
             break;
         case 'C':
             // Commit board config

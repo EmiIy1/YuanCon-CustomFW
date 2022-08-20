@@ -7,7 +7,7 @@ from tkinter.colorchooser import askcolor
 import serial
 import serial.tools.list_ports
 
-from persist import ConInfo, CHSV
+from persist import ConInfo, CHSV, BAUDRATE
 
 
 VID = 0x1ccf
@@ -15,7 +15,6 @@ PID = 0x101c
 
 VENDOR_NAME = "YuanCon (CFW)"
 PRODUCT_NAME = "YuanCon (CFW)"
-BAUDRATE = 115200
 
 PERSIST_DATA_VERSION = 1
 
@@ -311,7 +310,7 @@ class GUI:
 
         ttk.Separator(self.df, orient="horizontal").pack(fill="x", pady=10)
         ttk.Button(self.df, text="Save", command=lambda *_: self._command(b"C")).pack(anchor=tk.W)
-        ttk.Button(self.df, text="Reset", command=lambda *_: self._command(b"c")).pack(anchor=tk.W)
+        ttk.Button(self.df, text="Reset", command=lambda *_: self._command(b"l")).pack(anchor=tk.W)
 
         self._serial: serial.Serial = None
         self._con_info: ConInfo = None
@@ -411,9 +410,9 @@ class GUI:
         self._con_info.reactive_buttons = self.reactive_buttons_iv.get()
         self._con_info.con_mode = self.con_mode_combo.current()
 
-        self._serial.write(b"S")
+        self._serial.write(b"c")
         self._serial.write(bytes(self._con_info))
-        assert self._serial.read(1) == b"S"
+        assert self._serial.read(1) == b"c"
 
         # We might as well
         self._get_info()

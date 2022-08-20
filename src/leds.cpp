@@ -21,10 +21,6 @@ wing_leds_t wing_rgb_r_leds;
 CRGB start_rgb_l_leds[PinConf::start_rgb_count];
 CRGB start_rgb_r_leds[PinConf::start_rgb_count];
 
-#define zone(side, i)                                                    \
-    (con_state.led_mode.lasers == led_laser_mode_white ? CHSV(0, 0, 255) \
-                                                       : (con_state.led_solid_##side)[i])
-
 #define toward_zero(v)    \
     do {                  \
         if (v > 0) (v)--; \
@@ -173,36 +169,42 @@ void do_laser_leds() {
 
     vol_x_dir_led = vol_y_dir_led = 0;
 
+#define colour(x)                                                        \
+    (con_state.led_mode.lasers == led_laser_mode_white ? CHSV(0, 0, 255) \
+                                                       : con_state.zone_colours[x])
+
     switch (con_state.led_mode.lasers) {
         case led_laser_mode_white:
         case led_laser_mode_colour:
-            render_led_shoot_start(l_shoot_start, zone(l, 0));
-            render_led_shoot_start(r_shoot_start, zone(r, 0));
+            render_led_shoot_start(l_shoot_start, colour(LedZoneSL));
+            render_led_shoot_start(r_shoot_start, colour(LedZoneSR));
 
-            render_led_shoot_wing<PinConf::wing_rgb_upper>(l_shoot_wing_upper, zone(l, 1),
+            render_led_shoot_wing<PinConf::wing_rgb_upper>(l_shoot_wing_upper, colour(LedZoneWTL),
                                                            wing_rgb_l_leds.top);
-            render_led_shoot_wing<PinConf::wing_rgb_upper>(r_shoot_wing_upper, zone(r, 1),
+            render_led_shoot_wing<PinConf::wing_rgb_upper>(r_shoot_wing_upper, colour(LedZoneWTR),
                                                            wing_rgb_r_leds.top);
 
             // Button effects
-            render_led_fill<PinConf::start_rgb_count, false>(fill_start, zone(l, 0),
+            render_led_fill<PinConf::start_rgb_count, false>(fill_start, colour(LedZoneSL),
                                                              start_rgb_l_leds);
-            render_led_fill<PinConf::start_rgb_count, false>(fill_start, zone(r, 0),
+            render_led_fill<PinConf::start_rgb_count, false>(fill_start, colour(LedZoneSR),
                                                              start_rgb_r_leds);
 
-            render_led_fill<PinConf::wing_rgb_upper, true>(l_fill_wing_upper, zone(l, 1),
+            render_led_fill<PinConf::wing_rgb_upper, true>(l_fill_wing_upper, colour(LedZoneWTL),
                                                            wing_rgb_l_leds.top);
-            render_led_fill<PinConf::wing_rgb_upper, true>(r_fill_wing_upper, zone(r, 1),
+            render_led_fill<PinConf::wing_rgb_upper, true>(r_fill_wing_upper, colour(LedZoneWTR),
                                                            wing_rgb_r_leds.top);
 
-            render_led_fill<PinConf::wing_rgb_lower, false>(l_fill_wing_lower, zone(l, 2),
+            render_led_fill<PinConf::wing_rgb_lower, false>(l_fill_wing_lower, colour(LedZoneWBL),
                                                             wing_rgb_l_leds.bottom);
-            render_led_fill<PinConf::wing_rgb_lower, false>(r_fill_wing_lower, zone(r, 2),
+            render_led_fill<PinConf::wing_rgb_lower, false>(r_fill_wing_lower, colour(LedZoneWBR),
                                                             wing_rgb_r_leds.bottom);
             break;
         default:
             break;
     }
+
+#undef colour
 
     toward_zero(l_shoot_start);
     toward_zero(r_shoot_start);

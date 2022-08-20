@@ -10,16 +10,6 @@ const persistent_data_t default_con_state {
     .led_mode = {
         led_laser_mode_white,
     },
-    .led_solid_l = {
-        CHSV(0, 255, 255),
-        CHSV(0, 255, 255),
-        CHSV(0, 255, 255),
-    },
-    .led_solid_r = {
-        CHSV(0, 255, 255),
-        CHSV(0, 255, 255),
-        CHSV(0, 255, 255),
-    },
     .auto_hid = true,
     .reactive_buttons = true,
     .con_mode = con_mode_mixed,
@@ -40,6 +30,24 @@ const persistent_data_t default_con_state {
         led_zone_mode_rainbow,
         led_zone_mode_rainbow,
         led_zone_mode_rainbow,
+    },
+
+    // Up to 32 characters
+    .large_macros = {
+        { 0, { 0 } },
+        { 0, { 0 } },
+    },
+    // Up to 10 characters
+    .short_macros = {
+        { 0, { 0 } },
+        { 0, { 0 } },
+        { 0, { 0 } },
+        { 0, { 0 } },
+    },
+    // Single character (typed with a tiny_macro_speed delay), or a sequence macro from above
+    .tiny_macro_speed = 50,
+    .macro_layer = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     },
 };
 persistent_data_t con_state = default_con_state;
