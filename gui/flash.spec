@@ -2,9 +2,12 @@
 
 block_cipher = None
 
-a = Analysis(['main.py'],
+a = Analysis(['flash.py'],
              binaries=[],
-             datas=[],
+             datas=[
+                ("bossac.exe", "."),
+                ("updater.png", "."),
+             ],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
@@ -21,7 +24,7 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           [],
-          name='YuanCon-CFWConfig',
+          name='YuanCon-UpdateTool',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,

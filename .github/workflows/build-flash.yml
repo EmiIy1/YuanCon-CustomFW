@@ -1,4 +1,4 @@
-name: Build GUI exe
+name: Build Updater exe
 
 on:
   push:
@@ -14,13 +14,16 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Download bossac.exe
+      run: curl https://github.com/arduino/arduino-flash-tools/blob/master/tools_windows/bossac/bin/bossac.exe?raw=true -o gui/bossac.exe
+
     - name: Package Application
       uses: JackMcKew/pyinstaller-action-windows@main
       with:
-        spec: gui.spec
+        spec: flash.spec
         path: gui
 
     - uses: actions/upload-artifact@v2
       with:
-        name: config-tool
-        path: gui/dist/windows/YuanCon-CFWConfig.exe
+        name: update-tool
+        path: flash/dist/windows/YuanConCFWConfig.exe
