@@ -49,6 +49,10 @@ const persistent_data_t default_con_state {
     .macro_layer = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     },
+    // seconds
+    .led_dim = 60 * 5,  // Dim after 5 minutes
+    .led_timeout = 60 * 15,  // Turn off after 15 minutes
+    .led_brightness = 127,
 };
 persistent_data_t con_state = default_con_state;
 

@@ -7,7 +7,6 @@
 #include "vol.h"
 
 uint16_t button_leds;
-uint8_t led_brightness = 255;
 
 typedef union {
     CRGB leds[PinConf::wing_rgb_count];
@@ -285,19 +284,20 @@ void write_button_leds() {
     }
 }
 
+uint32_t last_interaction;
 void do_leds() {
-    // blank_led();
-    // do_wing_upper_leds();
-    // do_wing_lower_leds();
-    // do_start_leds();
-    do_led_zone(0, start_rgb_l_leds, len(start_rgb_l_leds), true);
-    do_led_zone(1, wing_rgb_l_leds.top, len(wing_rgb_l_leds.top), false);
-    do_led_zone(2, wing_rgb_l_leds.bottom, len(wing_rgb_l_leds.bottom), true);
-    do_led_zone(3, start_rgb_r_leds, len(start_rgb_r_leds), true);
-    do_led_zone(4, wing_rgb_r_leds.top, len(wing_rgb_r_leds.top), false);
-    do_led_zone(5, wing_rgb_r_leds.bottom, len(wing_rgb_r_leds.bottom), true);
+    if (buttons | vol_x_dir_led | vol_y_dir_led) last_interaction = millis();
 
-    do_laser_leds();
+    if (!LEDTimeout()) {
+        do_led_zone(0, start_rgb_l_leds, len(start_rgb_l_leds), true);
+        do_led_zone(1, wing_rgb_l_leds.top, len(wing_rgb_l_leds.top), false);
+        do_led_zone(2, wing_rgb_l_leds.bottom, len(wing_rgb_l_leds.bottom), true);
+        do_led_zone(3, start_rgb_r_leds, len(start_rgb_r_leds), true);
+        do_led_zone(4, wing_rgb_r_leds.top, len(wing_rgb_r_leds.top), false);
+        do_led_zone(5, wing_rgb_r_leds.bottom, len(wing_rgb_r_leds.bottom), true);
+
+        do_laser_leds();
+    }
 
     static bool leds_were_off = false;
 
@@ -312,7 +312,9 @@ void do_leds() {
     } else {
         leds_were_off = false;
 
-        FastLED.setBrightness(led_brightness);
+        uint8_t brightness = con_state.led_brightness;
+        if (LEDShouldDim()) brightness /= 4;
+        FastLED.setBrightness(brightness);
         // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that this call is unreasonably
         // ! espensive.
         FastLED.show();
@@ -320,5 +322,7 @@ void do_leds() {
 
     led_animation_frame += 3;
 
-    do_button_leds();
+    if (!LEDTimeout()) {
+        do_button_leds();
+    }
 }

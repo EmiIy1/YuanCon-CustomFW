@@ -1,8 +1,6 @@
 #pragma once
 #include <vendor.h>
 
-extern uint8_t led_brightness;
-
 typedef enum : uint8_t {
     led_laser_mode_white = 0,
     led_laser_mode_colour,
@@ -53,14 +51,21 @@ constexpr uint8_t hid_zones[] = { 4, 0, 1, 5, 2, 3 };
 
 #define AutoHidOn() (con_state.auto_hid && last_hid && (millis() - last_hid < AUTO_HID_TIMEOUT))
 
-#define LEDs_are_off()                                   \
-    (con_state.led_mode.lasers == led_laser_mode_none && \
-     con_state.zone_modes[0] == led_zone_mode_none &&    \
-     con_state.zone_modes[1] == led_zone_mode_none &&    \
-     con_state.zone_modes[2] == led_zone_mode_none &&    \
-     con_state.zone_modes[3] == led_zone_mode_none &&    \
-     con_state.zone_modes[4] == led_zone_mode_none &&    \
-     con_state.zone_modes[5] == led_zone_mode_none && !AutoHidOn())
+extern uint32_t last_interaction;
+#define LEDTimeout() \
+    (con_state.led_timeout != 0xffff && (millis() - last_interaction) / 1000 > con_state.led_timeout)
+#define LEDShouldDim() \
+    (con_state.led_dim != 0xffff && (millis() - last_interaction) / 1000 > con_state.led_dim)
+
+#define LEDs_are_off()                                                  \
+    ((con_state.led_mode.lasers == led_laser_mode_none &&               \
+      con_state.zone_modes[0] == led_zone_mode_none &&                  \
+      con_state.zone_modes[1] == led_zone_mode_none &&                  \
+      con_state.zone_modes[2] == led_zone_mode_none &&                  \
+      con_state.zone_modes[3] == led_zone_mode_none &&                  \
+      con_state.zone_modes[4] == led_zone_mode_none &&                  \
+      con_state.zone_modes[5] == led_zone_mode_none && !AutoHidOn()) || \
+     LEDTimeout())
 
 extern uint16_t button_leds;
 

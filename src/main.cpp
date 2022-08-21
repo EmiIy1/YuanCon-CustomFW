@@ -172,32 +172,36 @@ void handle_macro_keys() {
         tick2 = 0;
         // LEDs aren't changed linearly because the brightness isn't perceived that way
         if (VolY.dir < 0) {
-            if (led_brightness) {
-                if (led_brightness < 31)
-                    led_brightness--;
-                else if (led_brightness < 64)
-                    led_brightness -= 2;
-                else if (led_brightness < 127)
-                    led_brightness -= 4;
+            if (con_state.led_brightness) {
+                if (con_state.led_brightness < 31)
+                    con_state.led_brightness--;
+                else if (con_state.led_brightness < 64)
+                    con_state.led_brightness -= 2;
+                else if (con_state.led_brightness < 127)
+                    con_state.led_brightness -= 4;
                 else
-                    led_brightness -= 8;
+                    con_state.led_brightness -= 8;
             }
-            if (led_brightness) led_brightness /= 1.1;
+            if (con_state.led_brightness) con_state.led_brightness /= 1.1;
+
+            nvm_save_requested = micros();
         }
         if (VolY.dir > 0) {
-            if (led_brightness < 255) {
-                if (led_brightness < 31)
-                    led_brightness++;
-                else if (led_brightness < 64)
-                    led_brightness += 2;
-                else if (led_brightness < 127)
-                    led_brightness += 4;
+            if (con_state.led_brightness < 255) {
+                if (con_state.led_brightness < 31)
+                    con_state.led_brightness++;
+                else if (con_state.led_brightness < 64)
+                    con_state.led_brightness += 2;
+                else if (con_state.led_brightness < 127)
+                    con_state.led_brightness += 4;
                 else {
-                    led_brightness += 8;
-                    if (led_brightness < 16)  // Wrapped
-                        led_brightness = 255;
+                    con_state.led_brightness += 8;
+                    if (con_state.led_brightness < 16)  // Wrapped
+                        con_state.led_brightness = 255;
                 }
             }
+
+            nvm_save_requested = micros();
         }
     }
 }

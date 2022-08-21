@@ -77,4 +77,8 @@ class ConInfo(Struct):
         ("short_macros", ShortMacro * 4),
         ("tiny_macro_speed", ctypes.c_uint8),
         ("macro_layer", ctypes.c_uint8 * 10),
+
+        ("led_dim", ctypes.c_uint16),
+        ("led_timeout", ctypes.c_uint16),
+        ("led_brightness", ctypes.c_uint8),
     ]

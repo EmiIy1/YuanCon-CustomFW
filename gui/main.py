@@ -7,7 +7,8 @@ from tkinter.colorchooser import askcolor
 import serial
 import serial.tools.list_ports
 
-from persist import ConInfo, CHSV, BAUDRATE
+from persist import ConInfo, CHSV
+from util import BAUDRATE
 
 
 VID = 0x1ccf
@@ -227,6 +228,21 @@ class Keybinds(Modal):
         return callback
 
 
+def digits_only(action, index, value_if_allowed, *_):
+    if not value_if_allowed:
+        return True
+    try:
+        float(value_if_allowed)
+        return True
+    except ValueError:
+        pass
+
+    if value_if_allowed == "-":
+        return True
+
+    return False
+
+
 class GUI:
     FONT = ("SegoeUI", 10)
     FONT_B = ("SegoeUI", 10, "bold")
@@ -296,6 +312,17 @@ class GUI:
         self.reactive_buttons_cb.pack(anchor=tk.W)
 
         ttk.Button(self.df, text="Edit colours", command=lambda *_: self._do_colours()).pack(anchor=tk.W)
+
+        vcmd = (self.root.register(digits_only), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
+
+        tk.Label(self.df, text="Dim LEDs after (minutes, -1 to disable)").pack(anchor=tk.W)
+        self.leds_dim = ttk.Entry(self.df, validate="key", validatecommand=vcmd)
+        self.leds_dim.pack(anchor=tk.W, fill="x")
+        self.leds_dim.bind("<FocusOut>", lambda *_:self._set_info())
+        tk.Label(self.df, text="Turn off LEDs after (minutes, -1 to disable)").pack(anchor=tk.W)
+        self.leds_off = ttk.Entry(self.df, validate="key", validatecommand=vcmd)
+        self.leds_off.pack(anchor=tk.W, fill="x")
+        self.leds_off.bind("<FocusOut>", lambda *_:self._set_info())
 
         ttk.Separator(self.df, orient="horizontal").pack(fill="x", pady=10)
 
@@ -386,6 +413,18 @@ class GUI:
             self.auto_hid_iv.set(self._con_info.auto_hid)
             self.reactive_buttons_iv.set(self._con_info.reactive_buttons)
             self.con_mode_combo.current(self._con_info.con_mode)
+
+            self.leds_dim.delete(0, len(self.leds_dim.get()))
+            if self._con_info.led_dim == 0xffff:
+                self.leds_dim.insert("end", "-1")
+            else:
+                self.leds_dim.insert("end", str(round(self._con_info.led_dim / 60, 2)))
+
+            self.leds_off.delete(0, len(self.leds_off.get()))
+            if self._con_info.led_timeout == 0xffff:
+                self.leds_off.insert("end", "-1")
+            else:
+                self.leds_off.insert("end", str(round(self._con_info.led_timeout / 60, 2)))
         except Exception:
             raise
             # TODO: More granular
@@ -409,6 +448,23 @@ class GUI:
         self._con_info.auto_hid = self.auto_hid_iv.get()
         self._con_info.reactive_buttons = self.reactive_buttons_iv.get()
         self._con_info.con_mode = self.con_mode_combo.current()
+
+        if self.leds_dim.get() == "-1":
+            self._con_info.led_dim = 0xffff
+        else:
+            try:
+                val = float(self.leds_dim.get())
+                self._con_info.led_dim = min(0xfffe, int(val * 60))
+            except ValueError:
+                pass
+        if self.leds_off.get() == "-1":
+            self._con_info.led_timeout = 0xffff
+        else:
+            try:
+                val = float(self.leds_off.get())
+                self._con_info.led_timeout = min(0xfffe, int(val * 60))
+            except ValueError:
+                pass
 
         self._serial.write(b"c")
         self._serial.write(bytes(self._con_info))

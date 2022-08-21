@@ -100,12 +100,11 @@ class Flasher():
         if self.args.close_after:
             self.root.destroy()
 
-    def try_get_settings(self, name):
-        com = serial.Serial(name, baudrate=BAUDRATE)
+    def is_com_yuan_cfw(self, com):
         com.write(b"V")
         time.sleep(0.5)
         if not com.in_waiting:
-            return None
+            return False
         version = b""
         while not version.endswith(b"\r\n"):
             version += com.read(1)
@@ -115,6 +114,11 @@ class Flasher():
         com.write(b"w41002018,4#")  # Get device id
         device_id = struct.unpack("<I", com.read(4))[0]
         if device_id != SAMD21_DEVICE_ID:
+            return False
+
+    def try_get_settings(self, name):
+        com = serial.Serial(name, baudrate=BAUDRATE)
+        if not self.is_com_yuan_cfw(com):
             return None
 
         com.write(b"s")
@@ -126,8 +130,9 @@ class Flasher():
     def try_write_settings(self, name, settings):
         version, data = settings
 
-        # This is after an update, so we can trust the name a bit more
         com = serial.Serial(name, baudrate=BAUDRATE)
+        if not self.is_com_yuan_cfw(com):
+            return None
 
         com.write(b"s")
         version_check = com.read(1)[0]

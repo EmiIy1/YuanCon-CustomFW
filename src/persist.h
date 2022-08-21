@@ -38,6 +38,10 @@ typedef struct {
     short_macro_t short_macros[4];
     uint8_t tiny_macro_speed;
     uint8_t macro_layer[len(PinConf::buttons)];
+
+    uint16_t led_dim;
+    uint16_t led_timeout;
+    uint8_t led_brightness;
 } persistent_data_t;
 
 extern const persistent_data_t default_con_state;
