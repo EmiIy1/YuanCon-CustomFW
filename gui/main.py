@@ -289,6 +289,7 @@ class LightingSettings(Frame):
         self.update = update
         self.zone_colours = None
 
+        vcmd = (self.register(digits_only), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
         self._grid_y = 0
 
         self.led_start_combo = make_combo(self, "Start lighting mode", (
@@ -321,6 +322,11 @@ class LightingSettings(Frame):
             "Disabled",
         ))
 
+        grid(label(self, "LED saturation (applies across all zones in rainbow mode, 0-255)"), span=1)
+        self.leds_sat = ttk.Entry(self, validate="key", validatecommand=vcmd)
+        grid(self.leds_sat, col=1, span=2, sticky=tk.W + tk.E)
+        self.leds_sat.bind("<FocusOut>", lambda *_: self.update())
+
         self.auto_hid_iv = tk.IntVar()
         self.auto_hid_cb = grid(ttk.Checkbutton(
             self,
@@ -338,9 +344,6 @@ class LightingSettings(Frame):
         ))
 
         grid(ttk.Button(self, text="Edit colours", command=lambda *_: self._do_colours()))
-
-        vcmd = (self.register(digits_only), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
-
         grid(label(self, "Dim LEDs after (minutes, -1 to disable)"), span=1)
         self.leds_dim = ttk.Entry(self, validate="key", validatecommand=vcmd)
         grid(self.leds_dim, col=1, span=2, sticky=tk.W + tk.E)
@@ -372,11 +375,14 @@ class LightingSettings(Frame):
         self.auto_hid_iv.set(con_info.auto_hid)
         self.reactive_buttons_iv.set(con_info.reactive_buttons)
 
-        self.leds_dim.delete(0, len(self.leds_dim.get()))
-        if con_info.led_dim == 0xffff:
-            self.leds_dim.insert("end", "-1")
+        self.leds_sat.delete(0, len(self.leds_sat.get()))
+        self.leds_sat.insert("end", str(con_info.saturation))
+
+        self.leds_off.delete(0, len(self.leds_off.get()))
+        if con_info.led_timeout == 0xffff:
+            self.leds_off.insert("end", "-1")
         else:
-            self.leds_dim.insert("end", str(round(con_info.led_dim / 60, 2)))
+            self.leds_off.insert("end", str(round(con_info.led_timeout / 60, 2)))
 
         self.leds_off.delete(0, len(self.leds_off.get()))
         if con_info.led_timeout == 0xffff:
@@ -399,20 +405,26 @@ class LightingSettings(Frame):
         con_info.auto_hid = self.auto_hid_iv.get()
         con_info.reactive_buttons = self.reactive_buttons_iv.get()
 
+        try:
+            con_info.saturation = max(0, min(255, int(self.leds_sat.get())))
+        except ValueError:
+            pass
+
         if self.leds_dim.get() == "-1":
             con_info.led_dim = 0xffff
         else:
             try:
                 val = float(self.leds_dim.get())
-                con_info.led_dim = min(0xfffe, int(val * 60))
+                con_info.led_dim = max(0, min(0xfffe, int(val * 60)))
             except ValueError:
                 pass
+
         if self.leds_off.get() == "-1":
             con_info.led_timeout = 0xffff
         else:
             try:
                 val = float(self.leds_off.get())
-                con_info.led_timeout = min(0xfffe, int(val * 60))
+                con_info.led_timeout = max(0, min(0xfffe, int(val * 60)))
             except ValueError:
                 pass
 
@@ -688,7 +700,10 @@ class GUI:
 
             if resp:
                 self.save()
-            self.reset()
+            try:
+                self.reset()
+            except Exception:
+                pass
             self.root.destroy()
         else:
             self.reset()

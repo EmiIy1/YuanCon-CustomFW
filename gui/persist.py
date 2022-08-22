@@ -72,6 +72,7 @@ class ConInfo(Struct):
 
         ("button_lights", ctypes.c_uint8),
         ("zone_colours", CHSV * 6),
+        ("saturation", ctypes.c_uint8),
         ("zone_modes", ctypes.c_uint8 * 6),
 
         ("large_macros", LargeMacro * 2),

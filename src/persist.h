@@ -36,6 +36,7 @@ typedef struct {
 
     led_button_mode_t button_lights;
     CHSV zone_colours[6];
+    uint8_t saturation;
     led_zone_mode_t zone_modes[6];
 
     large_macro_t large_macros[2];

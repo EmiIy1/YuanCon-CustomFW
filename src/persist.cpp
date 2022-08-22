@@ -24,6 +24,7 @@ const persistent_data_t default_con_state {
         CHSV(0, 255, 255),
         CHSV(0, 255, 255),
     },
+    .saturation = 255,
     .zone_modes = {
         led_zone_mode_rainbow,
         led_zone_mode_rainbow,

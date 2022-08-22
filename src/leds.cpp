@@ -106,11 +106,12 @@ void do_led_zone(uint8_t zone, CRGB leds[], uint8_t count, bool reverse) {
             if (reverse) {
                 for (uint8_t i = 0; i < count; i++)
                     leds[i] = CHSV(led_animation_frame + (count - i - 1) * (256 / ((float)count)),
-                                   255, 255);
+                                   con_state.saturation, 255);
 
             } else {
                 for (uint8_t i = 0; i < count; i++)
-                    leds[i] = CHSV(led_animation_frame + i * (256 / ((float)count)), 255, 255);
+                    leds[i] = CHSV(led_animation_frame + i * (256 / ((float)count)),
+                                   con_state.saturation, 255);
             }
             break;
         case led_zone_mode_colour:
