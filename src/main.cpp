@@ -30,7 +30,7 @@ void handle_ex_buttons() {
     } else if (allowed_quick_mode_change &&
                (buttons & KeyMap::change_mode) == KeyMap::change_mode) {
         // Change controller mode
-        con_mode_t last_con_mode = con_state.con_mode;
+        uint8_t last_con_mode = con_state.con_mode;
 
         button_leds = 0;
         if (blink_tick & 4) button_leds |= (1 << con_state.con_mode);
@@ -220,7 +220,7 @@ void setup() {
     // Changing modes requires also holding either of the FX keys, to make it a little harder to
     // accidentally do.
     if (buttons & (PinConf::FX_L | PinConf::FX_R)) {
-        con_mode_t old_cm = con_state.con_mode;
+        uint8_t old_cm = con_state.con_mode;
         if (buttons & PinConf::BT_D) con_state.con_mode = con_mode_joystick_direction;
         if (buttons & PinConf::BT_C) con_state.con_mode = con_mode_joystick_position;
         if (buttons & PinConf::BT_B) con_state.con_mode = con_mode_kb_mouse;
@@ -339,14 +339,15 @@ void do_serial() {
             // SAM-BA commands
             break;
 
-        // case 'R': {
-        //     // Force a reboot into the bootloader by pretending we double tapped reset
+            // case 'R': {
+            //     // Force a reboot into the bootloader by pretending we double tapped reset
 
-        //     // https://github.com/sparkfun/Arduino_Boards/blob/682926ef72078d7939c12ea886f20e48cd901cd3/sparkfun/samd/bootloaders/zero/board_definitions_sparkfun_samd21dev.h#L38
-        //     constexpr size_t BOOT_DOUBLE_TAP_ADDRESS = 0x20007FFCul;
-        //     constexpr uint32_t DOUBLE_TAP_MAGIC = 0x07738135;
-        //     *((uint32_t *)BOOT_DOUBLE_TAP_ADDRESS) = DOUBLE_TAP_MAGIC;
-        // }
+            //     //
+            //     https://github.com/sparkfun/Arduino_Boards/blob/682926ef72078d7939c12ea886f20e48cd901cd3/sparkfun/samd/bootloaders/zero/board_definitions_sparkfun_samd21dev.h#L38
+            //     constexpr size_t BOOT_DOUBLE_TAP_ADDRESS = 0x20007FFCul;
+            //     constexpr uint32_t DOUBLE_TAP_MAGIC = 0x07738135;
+            //     *((uint32_t *)BOOT_DOUBLE_TAP_ADDRESS) = DOUBLE_TAP_MAGIC;
+            // }
 
         case 'r':
             // General reboot
@@ -407,28 +408,15 @@ void loop() {
 
     vol_x_dir_led = VolX.dir;
     vol_y_dir_led = VolY.dir;
-
-    switch (con_state.con_mode) {
-        case con_mode_kb_mouse:
-            do_keyboard();
-            do_mouse();
-            break;
-        case con_mode_joystick_position:
-            do_joystick(true);
-            break;
-        case con_mode_joystick_direction:
-            do_joystick(false);
-            break;
-        case con_mode_mixed:
-            do_keyboard();
-            do_mouse();
-            do_joystick(true);
-            break;
-        default:
-            break;
-    }
+    vol_x_dir = VolX.dir;
+    vol_y_dir = VolY.dir;
     // Reset for the next tick
     VolX.dir = VolY.dir = 0;
+
+    if (con_state.con_mode & CON_MODE_KEYBOARD) do_keyboard();
+    if (con_state.con_mode & CON_MODE_MOUSE) do_mouse();
+    if (con_state.con_mode & CON_MODE_GAMEPAD)
+        do_joystick(!!(con_state.con_mode & CON_MODE_GAMEPAD_POS));
 
     write_button_leds();
 

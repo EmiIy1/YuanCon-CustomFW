@@ -1,6 +1,6 @@
 #include "HID/MiniGamepad.h"
-#include "HID/MiniMouse.h"
 #include "HID/MiniKeyboard.h"
+#include "HID/MiniMouse.h"
 #include "buttons.h"
 #include "persist.h"
 #include "pins.h"
@@ -29,14 +29,16 @@ void do_joystick(bool absolute) {
         MiniGamepad.report.vol_x = VolX.val * encoder_scale;
         MiniGamepad.report.vol_y = VolY.val * encoder_scale;
     } else {
-        MiniGamepad.report.vol_x = VolX.dir > 0 ? 0x7fff : VolX.dir < 0 ? -0x8000 : 0;
-        MiniGamepad.report.vol_y = VolY.dir > 0 ? 0x7fff : VolY.dir < 0 ? -0x8000 : 0;
+        MiniGamepad.report.vol_x = vol_x_dir > 0 ? 0x7fff : vol_x_dir < 0 ? -0x8000 : 0;
+        MiniGamepad.report.vol_y = vol_y_dir > 0 ? 0x7fff : vol_y_dir < 0 ? -0x8000 : 0;
+
+        vol_x_dir = vol_y_dir = 0;
     }
 
     for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
-        if (posedge_buttons & (1 << i)) MiniGamepad.report.buttons |= 1 << PinConf::gamepad_map[i];
+        if (posedge_buttons & (1 << i)) MiniGamepad.report.buttons |= 1 << con_state.gamepad_map[i];
         if (negedge_buttons & (1 << i))
-            MiniGamepad.report.buttons &= ~(1 << PinConf::gamepad_map[i]);
+            MiniGamepad.report.buttons &= ~(1 << con_state.gamepad_map[i]);
     }
 
     MiniGamepad.write();

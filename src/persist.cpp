@@ -14,6 +14,7 @@ const persistent_data_t default_con_state {
     .reactive_buttons = true,
     .con_mode = con_mode_mixed,
     .keymap = { 'd', 'f', 'j', 'k', 'v', 'n', 't', 'q', 'a', 'z' },
+    .gamepad_map = { 0, 1, 2, 3, 4, 5, 8, 9, 7, 6 },
     .button_lights = led_button_mode_live,
     .zone_colours = {
         CHSV(0, 255, 255),

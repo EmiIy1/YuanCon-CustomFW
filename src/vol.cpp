@@ -3,6 +3,7 @@
 #include "pins.h"
 
 volatile int8_t vol_x_dir_led = 0, vol_y_dir_led = 0;
+volatile int8_t vol_x_dir = 0, vol_y_dir = 0;
 
 template <pin_size_t g1, pin_size_t g2, bool double_interrupt>
 uint16_t Vol_<g1, g2, double_interrupt>::val;

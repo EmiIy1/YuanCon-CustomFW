@@ -14,6 +14,12 @@ CFW_VID_PID = (0x04D8, 0xE72E)
 BAUDRATE = 921600
 SAMD21_DEVICE_ID = 0x10010305
 
+KEYBOARD_MODE = 1
+MOUSE_MODE = 2
+GAMEPAD_MODE_POS = 4
+GAMEPAD_MODE_DIR = 8
+GAMEPAD_MODE = GAMEPAD_MODE_POS | GAMEPAD_MODE_DIR
+
 
 def real_path(path):
     if getattr(sys, "frozen", False):
@@ -41,6 +47,16 @@ def find_port(programming=False) -> Optional[str]:
     return None
 
 
+def get_com_serial(com):
+    devices = serial.tools.list_ports.comports()
+
+    for i in devices:
+        if i.name == com.name:
+            return i.serial_number
+
+    return ""
+
+
 def build_update_command(port, path):
     return [
         real_path("bossac.exe"),
@@ -57,5 +73,5 @@ def build_update_command(port, path):
 __all__ = (
     "KONAMI_VID_PID", "BOOTLOADER_VID_PID", "CFW_VID_PID",
     "BAUDRATE",
-    "real_path", "find_port", "build_update_command",
+    "real_path", "find_port", "build_update_command", "get_com_serial",
 )

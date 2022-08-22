@@ -4,13 +4,16 @@
 #include "leds.h"
 #include "pins.h"
 
-typedef enum : uint8_t {
-    con_mode_mixed = 0,
-    con_mode_kb_mouse,
-    con_mode_joystick_position,
-    con_mode_joystick_direction,
-    _no_con_modes,
-} con_mode_t;
+constexpr uint8_t CON_MODE_KEYBOARD = 1;
+constexpr uint8_t CON_MODE_MOUSE = 2;
+constexpr uint8_t CON_MODE_GAMEPAD_POS = 4;
+constexpr uint8_t CON_MODE_GAMEPAD_DIR = 8;
+constexpr uint8_t CON_MODE_GAMEPAD = CON_MODE_GAMEPAD_POS | CON_MODE_GAMEPAD_DIR;
+
+constexpr uint8_t con_mode_mixed = CON_MODE_KEYBOARD | CON_MODE_MOUSE | CON_MODE_GAMEPAD_POS;
+constexpr uint8_t con_mode_kb_mouse = CON_MODE_KEYBOARD | CON_MODE_MOUSE;
+constexpr uint8_t con_mode_joystick_position = CON_MODE_GAMEPAD_POS;
+constexpr uint8_t con_mode_joystick_direction = CON_MODE_GAMEPAD_DIR;
 
 constexpr uint8_t PERSIST_DATA_VERSION = 1;
 
@@ -27,8 +30,9 @@ typedef struct {
     led_mode_config_t led_mode;
     bool auto_hid;
     bool reactive_buttons;
-    con_mode_t con_mode;
+    uint8_t con_mode;
     char keymap[len(PinConf::buttons)];
+    uint8_t gamepad_map[len(PinConf::buttons)];
 
     led_button_mode_t button_lights;
     CHSV zone_colours[6];

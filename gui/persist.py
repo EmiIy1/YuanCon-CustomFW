@@ -68,6 +68,7 @@ class ConInfo(Struct):
         ("reactive_buttons", ctypes.c_bool),
         ("con_mode", ctypes.c_uint8),
         ("keymap", ctypes.c_char * 10),
+        ("gamepad_map", ctypes.c_uint8 * 10),
 
         ("button_lights", ctypes.c_uint8),
         ("zone_colours", CHSV * 6),
