@@ -5,7 +5,6 @@ block_cipher = None
 a = Analysis(['flash.py'],
              binaries=[],
              datas=[
-                ("bossac.exe", "."),
                 ("updater.png", "."),
              ],
              hiddenimports=[],

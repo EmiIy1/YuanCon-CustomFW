@@ -9,7 +9,7 @@ import serial
 
 from persist import ConInfo, CHSV
 from util import (
-    BAUDRATE,
+    CONFIG_BAUDRATE, SAM_BA_BAUDRATE,
     get_com_serial, find_port,
     KEYBOARD_MODE, GAMEPAD_MODE, MOUSE_MODE, GAMEPAD_MODE_POS, GAMEPAD_MODE_DIR
 )
@@ -228,10 +228,12 @@ class ConInfoFrame(Frame):
 
     def populate(self, com, con_info):
         self.name.configure(text="YuanCon")
+        com.baudrate = SAM_BA_BAUDRATE
         com.write(b"V")
         version = b""
         while not version.endswith(b"\r\n"):
             version += com.read(1)
+        com.baudrate = CONFIG_BAUDRATE
         self.version.configure(text=version.decode("latin-1").strip())
 
         self.serial.configure(text=get_com_serial(com))
@@ -800,7 +802,7 @@ class GUI:
             return self.root.after(100, self.detect_device)
 
         try:
-            self._serial = serial.Serial(port, baudrate=BAUDRATE)
+            self._serial = serial.Serial(port, baudrate=CONFIG_BAUDRATE)
         except serial.serialutil.SerialException:
             return self.root.after(100, self.detect_device)
 

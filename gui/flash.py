@@ -1,10 +1,8 @@
 import struct
-import subprocess
 import argparse
 import sys
 import time
 import os
-import re
 
 from tkinter import Frame, Label, StringVar, Tk, messagebox, PhotoImage
 from tkinter.filedialog import askopenfilename
@@ -12,10 +10,8 @@ from tkinter.ttk import Button, Entry, Progressbar
 
 import serial
 
-from util import real_path, find_port, build_update_command, BAUDRATE, SAMD21_DEVICE_ID
-
-
-BOSSAC_PROGRESS_RE = re.compile(r"\[=* *\] \d+% \((\d+)/(\d+) pages\)")
+from util import real_path, find_port, RESET_BAUDRATE, CONFIG_BAUDRATE, SAMD21_DEVICE_ID
+from samba import SAMD21
 
 
 class Flasher():
@@ -117,7 +113,7 @@ class Flasher():
             return False
 
     def try_get_settings(self, name):
-        com = serial.Serial(name, baudrate=BAUDRATE)
+        com = serial.Serial(name, baudrate=CONFIG_BAUDRATE)
         if not self.is_com_yuan_cfw(com):
             return None
 
@@ -130,7 +126,7 @@ class Flasher():
     def try_write_settings(self, name, settings):
         version, data = settings
 
-        com = serial.Serial(name, baudrate=BAUDRATE)
+        com = serial.Serial(name, baudrate=CONFIG_BAUDRATE)
         if not self.is_com_yuan_cfw(com):
             return None
 
@@ -155,7 +151,7 @@ class Flasher():
 
         if not is_programming:
             self.status("Controller found. Switching to programming mode")
-            serial.Serial(name, 1200).close()
+            serial.Serial(name, RESET_BAUDRATE).close()
 
             start = time.time()
             while time.time() - start < 3:
@@ -178,26 +174,30 @@ class Flasher():
         self.status(f"Using {name} for update")
 
         # TODO: Basic sanity checks on the bin file
-        cmd = build_update_command(name, self.fw_path.get())
+        firmware = open(self.fw_path.get(), "rb").read()
 
-        with subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True
-        ) as p:
-            if p.stdout:
-                for line in p.stdout:
-                    match = BOSSAC_PROGRESS_RE.match(line)
-                    if match:
-                        print(line, end="", flush=True, file=sys.stderr)
-                        self.pb.configure(value=(int(match.group(1)) / int(match.group(2))) * 100)
-                    elif line.strip():
-                        self.status(line.strip())
-                    self.root.update()
-                for line in p.stderr:
-                    self.status(line)
-                    self.root.update()
+        with SAMD21(name) as samd:
+            self.status("Bootloader: " + samd.get_version())
+            self.status("Erasing chip")
+            samd.chip_erase()
+            self.status("Writing firmware")
+            start = time.perf_counter()
+
+            def callback(current, total):
+                self.pb.configure(value=(current / total) * 100)
+                delta = time.perf_counter() - start
+                self.status(f"Writing firmware ({total / delta / 1024:.3f} KiB/s)")
+                self.root.update()
+
+            try:
+                samd.write_program(firmware, callback=callback)
+            except ValueError:
+                self.status("Checksum validation failed")
+                messagebox.showerror("Update", "Checksum validation failed.\nPlease try again.")
+                return
+
+            self.status("Firmware written, restarting")
+            samd.reset()
 
         if settings:
             self.status("Restoring settings")

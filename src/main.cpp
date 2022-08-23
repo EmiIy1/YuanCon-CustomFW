@@ -252,16 +252,18 @@ void setup() {
         }                                                                                  \
     } while (0)
 
-bool do_samba(uint8_t prefix) {
+void do_samba() {
+    uint8_t prefix = SerialUSB.read();
+
     switch (prefix) {
         case 'N':
             // Switch to non-interactive mode;
             SerialUSB.write("\r\n");
-            return true;
+            return;
         case 'V':
             // Get version string
             SerialUSB.write("YuanCon " __DATE__ " " __TIME__ "\r\n");
-            return true;
+            return;
         case 'w': {
             // Read word
             uint32_t address = 0;
@@ -283,7 +285,7 @@ bool do_samba(uint8_t prefix) {
             //         SerialUSB.write('0' + nibble);
             // }
         }
-            return true;
+            return;
         case 'S': {
             // Write lots of data
             uint32_t address = 0;
@@ -299,7 +301,7 @@ bool do_samba(uint8_t prefix) {
                 length--;
             }
         }
-            return true;
+            return;
         case 'W': {
             // Write word
             uint32_t address = 0;
@@ -311,34 +313,17 @@ bool do_samba(uint8_t prefix) {
 
             *((uint32_t *)address) = word_;
         }
-            return true;
+            return;
     }
-
-    return false;
 }
 
 void do_serial() {
     if (!SerialUSB.available()) return;
 
+    if (SerialUSB.baud() == 921600) return do_samba();
+
     uint8_t prefix = SerialUSB.read();
-    if (do_samba(prefix)) return;
-
     switch (prefix) {
-        case 'N':
-        case 'T':
-        case 'O':
-        case 'o':
-        case 'H':
-        case 'h':
-        case 'W':
-        case 'w':
-        case 'S':
-        case 'R':
-        case 'G':
-        case 'V':
-            // SAM-BA commands
-            break;
-
             // case 'R': {
             //     // Force a reboot into the bootloader by pretending we double tapped reset
 
