@@ -1,13 +1,19 @@
 ## Controller Modes
-Currently four controller modes are implemented:
-1. Mouse + keyboard, gamepad variant 1
-2. Mouse + keyboard, no gamepad
-3. Gamepad variant 1, joystick position = knob position
-4. Gamepad variant 2, joystick position = knob direaction
+Rather than the conventional concept of "modes", the different input methods can be indepentendly toggled.
 
-The mode can be selected by holding EX1, FXL and FXR, then either tapping the corresponding BT, or using FX2 to cycle through.
+There are four different forms of input:
+1. Keyboard input (buttons)
+2. Mouse input (analogs)
+3. Gamepad input (buttons+analogs), joystick position = knob position
+4. Gamepad input (buttons+analogs), joystick position = knob direction
 
-The default mode is mode 1, which will work both in anything using keybinds or anything using a gamepad (e.g. EAC) out of the box. When binding in spice it will preferentially use the gamepad buttons over the keyboard. If you don't want this, you can switch to mode 2 during binding.
+It should however be noted that (3) and (4) are mutually exclusive.
+
+To toggle modes during normal operation, hold EX1, EX2, and START, then tap the corresponding BTs to enable or disable each.
+
+The mode toggle can also be accessed by holding START for 5 seconds when plugging in the controller (start must be alreadt held before plugging in the USB). START will blink to indicate the countdown is occuring, after which mode selection is entered. Tap the BTs to enable or disable each mode, then tap START when finished to return to normal operation.
+
+Advanced settings such as keybinds can be changed from within the companion configuration tool.
 
 ## Lighting Modes
 Lighting is seperated into four individually configurable zones:
@@ -23,6 +29,8 @@ Solid colour lighting is divided into three zones, the start LEDs, the top half 
 Reactive lights are enabled by default, and can be toggled by holding EX-1 and tapping FX-L. Reactive lights will show lighting effects when any of the buttons on the controller are pressed.
 
 Auto-HID is enabled by default, and can be toggled by holding EX-1 and tapping FX-R. In Auto-HID mode, the controller will switch to using HID lighting if it detects a game running using HID lighting, then will return to normal after the game closes.
+
+After a configurable amount of time, all LEDs on the controller will dim, and after another period of time they will completely turn off. These thresholds are set at 5 and 15 minutes respectively, but can be changed or totally removed from within the companion configuration tool.
 
 ### Wing lights options
 1. Rainbow puke

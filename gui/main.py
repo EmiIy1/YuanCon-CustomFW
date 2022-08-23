@@ -708,7 +708,10 @@ class GUI:
                 pass
             self.root.destroy()
         else:
-            self.reset()
+            try:
+                self.reset()
+            except Exception:
+                pass
             self.root.destroy()
 
     def save(self, *_):

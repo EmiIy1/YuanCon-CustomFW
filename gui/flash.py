@@ -10,7 +10,7 @@ from tkinter.ttk import Button, Entry, Progressbar
 
 import serial
 
-from util import real_path, find_port, RESET_BAUDRATE, CONFIG_BAUDRATE, SAMD21_DEVICE_ID
+from util import real_path, find_port, RESET_BAUDRATE, CONFIG_BAUDRATE, SAM_BA_BAUDRATE, SAMD21_DEVICE_ID
 from samba import SAMD21
 
 
@@ -97,10 +97,13 @@ class Flasher():
             self.root.destroy()
 
     def is_com_yuan_cfw(self, com):
+        com.baudrate = SAM_BA_BAUDRATE
         com.write(b"V")
         time.sleep(0.5)
         if not com.in_waiting:
+            com.baudrate = CONFIG_BAUDRATE
             return False
+
         version = b""
         while not version.endswith(b"\r\n"):
             version += com.read(1)
@@ -109,8 +112,9 @@ class Flasher():
 
         com.write(b"w41002018,4#")  # Get device id
         device_id = struct.unpack("<I", com.read(4))[0]
-        if device_id != SAMD21_DEVICE_ID:
-            return False
+        com.baudrate = CONFIG_BAUDRATE
+
+        return device_id == SAMD21_DEVICE_ID
 
     def try_get_settings(self, name):
         com = serial.Serial(name, baudrate=CONFIG_BAUDRATE)

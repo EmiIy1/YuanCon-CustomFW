@@ -66,7 +66,10 @@ def crc16(data):
 
 class SAM_BA:
     def __init__(self, port):
-        self.com = serial.Serial(port, SAM_BA_BAUDRATE)
+        if isinstance(port, serial.Serial):
+            self.com = port
+        else:
+            self.com = serial.Serial(port, SAM_BA_BAUDRATE)
         self._interactive = True
         self.interactive = False
 

@@ -70,5 +70,7 @@ extern uint32_t last_interaction;
 extern uint16_t button_leds;
 
 void setup_leds();
+void blank_led();
 void do_leds();
+void do_button_leds();
 void write_button_leds();

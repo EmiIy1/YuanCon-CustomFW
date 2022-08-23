@@ -322,8 +322,4 @@ void do_leds() {
     }
 
     led_animation_frame += 3;
-
-    if (!LEDTimeout()) {
-        do_button_leds();
-    }
 }

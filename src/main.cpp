@@ -8,12 +8,52 @@
 #include "leds.h"
 #include "persist.h"
 #include "pins.h"
+#include "serial.h"
 #include "vol.h"
 
 unsigned long nvm_save_requested = 0;
 constexpr unsigned long nvm_save_delay = 5000;
 
 constexpr bool allowed_quick_mode_change = true;
+
+bool started_with_start = false;
+
+void handle_con_mode_buttons() {
+    uint8_t last_con_mode = con_state.con_mode;
+
+    if (posedge_buttons & PinConf::BT_A) con_state.con_mode ^= CON_MODE_KEYBOARD;
+    if (posedge_buttons & PinConf::BT_B) con_state.con_mode ^= CON_MODE_MOUSE;
+    if (posedge_buttons & PinConf::BT_C) {
+        if (con_state.con_mode & CON_MODE_GAMEPAD_POS) {
+            con_state.con_mode &= ~CON_MODE_GAMEPAD;
+        } else {
+            con_state.con_mode &= ~CON_MODE_GAMEPAD;
+            con_state.con_mode |= CON_MODE_GAMEPAD_POS;
+        }
+    }
+    if (posedge_buttons & PinConf::BT_D) {
+        if (con_state.con_mode & CON_MODE_GAMEPAD_DIR) {
+            con_state.con_mode &= ~CON_MODE_GAMEPAD;
+        } else {
+            con_state.con_mode &= ~CON_MODE_GAMEPAD;
+            con_state.con_mode |= CON_MODE_GAMEPAD_DIR;
+        }
+    }
+
+    if (con_state.con_mode != last_con_mode) {
+        MiniKeyboard.releaseAll();
+        MiniKeyboard.write();
+
+        MiniGamepad.report.buttons = 0;
+        MiniGamepad.report.vol_x = 0;
+        MiniGamepad.report.vol_y = 0;
+        MiniGamepad.write();
+    }
+
+    // Currently just 4 bit, so lines up perfectly. This'll need made more complex if that ever
+    // stops being the case.
+    button_leds |= con_state.con_mode;
+}
 
 void handle_ex_buttons() {
     static uint16_t blink_tick = 0;
@@ -30,25 +70,9 @@ void handle_ex_buttons() {
     } else if (allowed_quick_mode_change &&
                (buttons & KeyMap::change_mode) == KeyMap::change_mode) {
         // Change controller mode
-        uint8_t last_con_mode = con_state.con_mode;
-
         button_leds = 0;
-        if (blink_tick & 4) button_leds |= (1 << con_state.con_mode);
-
-        if (posedge_buttons & PinConf::BT_A) con_state.con_mode = con_mode_mixed;
-        if (posedge_buttons & PinConf::BT_B) con_state.con_mode = con_mode_kb_mouse;
-        if (posedge_buttons & PinConf::BT_C) con_state.con_mode = con_mode_joystick_position;
-        if (posedge_buttons & PinConf::BT_D) con_state.con_mode = con_mode_joystick_direction;
-
-        if (con_state.con_mode != last_con_mode) {
-            MiniKeyboard.releaseAll();
-            MiniKeyboard.write();
-
-            MiniGamepad.report.buttons = 0;
-            MiniGamepad.report.vol_x = 0;
-            MiniGamepad.report.vol_y = 0;
-            MiniGamepad.write();
-        }
+        handle_con_mode_buttons();
+        if (blink_tick & 8) button_leds = 0;
     } else if (buttons & KeyMap::led_mode) {
         if (posedge_buttons & KeyMap::change_wing) {
             if ((++*((uint8_t *)&con_state.zone_modes[LedZoneWTL])) == _no_led_zone_modes)
@@ -217,19 +241,20 @@ void setup() {
     setup_leds();
 
     read_buttons();
+    started_with_start = !!(buttons & PinConf::START);
     // Changing modes requires also holding either of the FX keys, to make it a little harder to
     // accidentally do.
-    if (buttons & (PinConf::FX_L | PinConf::FX_R)) {
-        uint8_t old_cm = con_state.con_mode;
-        if (buttons & PinConf::BT_D) con_state.con_mode = con_mode_joystick_direction;
-        if (buttons & PinConf::BT_C) con_state.con_mode = con_mode_joystick_position;
-        if (buttons & PinConf::BT_B) con_state.con_mode = con_mode_kb_mouse;
-        if (buttons & PinConf::BT_A) con_state.con_mode = con_mode_mixed;
+    // if (buttons & (PinConf::FX_L | PinConf::FX_R)) {
+    //     uint8_t old_cm = con_state.con_mode;
+    //     if (buttons & PinConf::BT_D) con_state.con_mode = con_mode_joystick_direction;
+    //     if (buttons & PinConf::BT_C) con_state.con_mode = con_mode_joystick_position;
+    //     if (buttons & PinConf::BT_B) con_state.con_mode = con_mode_kb_mouse;
+    //     if (buttons & PinConf::BT_A) con_state.con_mode = con_mode_mixed;
 
-        // ! Performs a write to flash. We perform this write immediatly, because the user has
-        // no ! option to change their mind anyway.
-        if (con_state.con_mode != old_cm) save_con_state();
-    }
+    //     // ! Performs a write to flash. We perform this write immediatly, because the user has
+    //     // no ! option to change their mind anyway.
+    //     if (con_state.con_mode != old_cm) save_con_state();
+    // }
 
     SerialUSB.begin(921600);
 
@@ -240,134 +265,29 @@ void setup() {
     MiniKeyboard.begin();
 }
 
-#define SerialReadWord(variable)                                                           \
-    do {                                                                                   \
-        for (uint8_t i = 8; i--;) {                                                        \
-            /* we're only going to support upper case hex for now, and be very trusting */ \
-            uint8_t chr = SerialUSB.read();                                                \
-            if (chr >= 'A')                                                                \
-                variable |= ((chr - 'A') + 10) << (i * 4);                                 \
-            else                                                                           \
-                variable |= (chr - '0') << (i * 4);                                        \
-        }                                                                                  \
-    } while (0)
+void do_startup_mode_change() {
+    // We're not going to bother updating the LEDs, so just turn them off
+    blank_led();
+    FastLED.show();
 
-void do_samba() {
-    uint8_t prefix = SerialUSB.read();
+    uint8_t blink = 0;
+    while (1) {
+        read_buttons();
 
-    switch (prefix) {
-        case 'N':
-            // Switch to non-interactive mode;
-            SerialUSB.write("\r\n");
-            return;
-        case 'V':
-            // Get version string
-            SerialUSB.write("YuanCon " __DATE__ " " __TIME__ "\r\n");
-            return;
-        case 'w': {
-            // Read word
-            uint32_t address = 0;
-            SerialReadWord(address);
-            SerialUSB.read();  // ','
-            SerialUSB.read();  // '4'
-            SerialUSB.read();  // '#'
+        button_leds = 0;
+        handle_con_mode_buttons();
+        blink++;
+        if (blink & 8) button_leds = 0;
+        else button_leds |= PinConf::START;
 
-            uint32_t value = *(uint32_t *)(address);
+        write_button_leds();
+        // We don't care about polling rate, so go with something more reasonable so the blink works
+        delay(20);
 
-            for (uint8_t i = 0; i < 4; i++) SerialUSB.write((value >> (i * 8)) & 0xff);
-
-            // Would write interactively
-            // for (uint8_t i = 8; i--;) {
-            //     uint8_t nibble = ((value & (0b1111 << (i * 4))) >> (i * 4));
-            //     if (nibble > 9)
-            //         SerialUSB.write('A' + (nibble - 10));
-            //     else
-            //         SerialUSB.write('0' + nibble);
-            // }
-        }
-            return;
-        case 'S': {
-            // Write lots of data
-            uint32_t address = 0;
-            SerialReadWord(address);
-            SerialUSB.read();  // ','
-            uint32_t length = 0;
-            SerialReadWord(length);
-            SerialUSB.read();  // '#'
-
-            while (length) {
-                *((uint8_t *)address) = SerialUSB.read();
-                address++;
-                length--;
-            }
-        }
-            return;
-        case 'W': {
-            // Write word
-            uint32_t address = 0;
-            SerialReadWord(address);
-            SerialUSB.read();  // ','
-            uint32_t word_ = 0;
-            SerialReadWord(word_);
-            SerialUSB.read();  // '#'
-
-            *((uint32_t *)address) = word_;
-        }
-            return;
-    }
-}
-
-void do_serial() {
-    if (!SerialUSB.available()) return;
-
-    if (SerialUSB.baud() == 921600) return do_samba();
-
-    uint8_t prefix = SerialUSB.read();
-    switch (prefix) {
-            // case 'R': {
-            //     // Force a reboot into the bootloader by pretending we double tapped reset
-
-            //     //
-            //     https://github.com/sparkfun/Arduino_Boards/blob/682926ef72078d7939c12ea886f20e48cd901cd3/sparkfun/samd/bootloaders/zero/board_definitions_sparkfun_samd21dev.h#L38
-            //     constexpr size_t BOOT_DOUBLE_TAP_ADDRESS = 0x20007FFCul;
-            //     constexpr uint32_t DOUBLE_TAP_MAGIC = 0x07738135;
-            //     *((uint32_t *)BOOT_DOUBLE_TAP_ADDRESS) = DOUBLE_TAP_MAGIC;
-            // }
-
-        case 'r':
-            // General reboot
-            NVIC_SystemReset();
-            break;
-        case 's':
-            // Get board config
-            SerialUSB.write(PERSIST_DATA_VERSION);
-            // TODO: This is going to overflow 255 at some point!
-            SerialUSB.write(sizeof con_state);
-            SerialUSB.write((uint8_t *)&con_state, sizeof con_state);
-            break;
-        case 'c':
-            // Set board config
-            SerialUSB.readBytes((uint8_t *)&con_state, sizeof con_state);
-            SerialUSB.write('c');
-            break;
-        case 'l':
-            // Clear board config
-            memcpy(&con_state, &default_con_state, sizeof con_state);
+        if (posedge_buttons & PinConf::START) {
             save_con_state();
-            // Keymap possibly changed, so unpress everything
-            MiniKeyboard.releaseAll();
-            MiniKeyboard.write();
-            // TODO: Unpress gamepad buttons, once those are configurable
-            SerialUSB.write('l');
-            break;
-        case 'C':
-            // Commit board config
-            save_con_state();
-            load_con_state();
-            SerialUSB.write('C');
-            break;
-        default:
-            break;
+            return;
+        }
     }
 }
 
@@ -385,6 +305,19 @@ void loop() {
 
     if (SerialUSB) do_serial();
     read_buttons();
+    if (!LEDTimeout()) do_button_leds();
+
+    if (started_with_start) {
+        if (!(buttons & PinConf::START))
+            started_with_start = false;
+        else if (millis() > 5000) {
+            do_startup_mode_change();
+        }
+
+        // Flash start to indicate something is going on. It's light from holding it, so we need to
+        // _un_ light it to make it flash.
+        if (millis() & 128) button_leds &= ~(PinConf::START);
+    }
 
     handle_ex_buttons();
     if (buttons & KeyMap::macro_key) {
