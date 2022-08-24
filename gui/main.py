@@ -24,6 +24,7 @@ FONT = ("SegoeUI", 10)
 FONT_B = ("SegoeUI", 10, "bold")
 
 BUTTON_NAMES = ["BT-A", "BT-B", "BT-C", "BT-D", "FX-L", "FX-R", "Start", "EX-1", "EX-2", "EX-3"]
+NUM_KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "/", "*", "ENTER", "."]
 
 
 class Modal(tk.Toplevel):
@@ -58,7 +59,7 @@ class Modal(tk.Toplevel):
 
 
 class Keybinder(Modal):
-    def __init__(self, parent):
+    def __init__(self, parent, escape_valid=False):
         super().__init__(parent, hidden=True)
         self.geometry("200x100")
         self.resizable(0, 0)
@@ -77,18 +78,62 @@ class Keybinder(Modal):
         self.for_lab.pack()
         self.bind_lab = label(kb_frame, "", font=FONT_B)
         self.bind_lab.pack()
+
+        self.escape_valid = escape_valid
         self.callback = None
 
     def do_bind(self, name, key, callback):
         self.for_lab.configure(text=f"Press the key for {name}:")
-        self.bind_lab.configure(text=f"<{chr(key)}>")
+        key_str = chr(key) if key < 0x80 else f"NUM {NUM_KEYS[key - 0x80]}"
+        if not key_str.isprintable():
+            key_str = ""
+        self.bind_lab.configure(text=f"<{key_str}>")
         self.callback = callback
         self.show()
 
+    NUMPAD_MAPPING = {
+        # 0 - 9
+        0x60: 0x80,
+        0x61: 0x81,
+        0x62: 0x82,
+        0x63: 0x83,
+        0x64: 0x84,
+        0x65: 0x85,
+        0x66: 0x86,
+        0x67: 0x87,
+        0x68: 0x88,
+        0x69: 0x89,
+        # +, -, *
+        0x6b: 0x8a,
+        0x6d: 0x8b,
+        0x6a: 0x8c,
+        # .
+        0x6e: 0x8f,
+    }
+    NUMPAD_MOD_MAPPING = {
+        # /, ENTER
+        0x6f: 0x8d,
+        0x0d: 0x8e,
+    }
+    NUMPAD_ALL_MAPPING = {**NUMPAD_MAPPING, **NUMPAD_MOD_MAPPING}
+
     def _bind_key(self, key):
+        # Escape
+        if key.keycode == 27:
+            self.hide()
+            if self.escape_valid:
+                self.callback(0)
+            return
+
         if key.char:
-            self.bind_lab.configure(text=f"<{key.char}>")
-            self.callback(ord(key.char))
+            # Numpad keys
+            if key.keycode in self.NUMPAD_MAPPING or (key.state & 0x40000 and key.keycode in self.NUMPAD_MOD_MAPPING):
+                sym = self.NUMPAD_ALL_MAPPING[key.keycode]
+                self.callback(sym)
+                self.bind_lab.configure(text=f"<NUM {NUM_KEYS[sym - 0x80]}>")
+            else:
+                self.bind_lab.configure(text=f"<{key.char}>")
+                self.callback(ord(key.char))
             self.hide()
 
 
@@ -203,6 +248,10 @@ def digits_only(action, index, value_if_allowed, *_):
         return True
 
     return False
+
+
+def max32(action, index, value_if_allowed, *_):
+    return len(value_if_allowed) <= 32
 
 
 class Frame(tk.Frame):
@@ -380,11 +429,11 @@ class LightingSettings(Frame):
         self.leds_sat.delete(0, len(self.leds_sat.get()))
         self.leds_sat.insert("end", str(con_info.saturation))
 
-        self.leds_off.delete(0, len(self.leds_off.get()))
+        self.leds_dim.delete(0, len(self.leds_dim.get()))
         if con_info.led_timeout == 0xffff:
-            self.leds_off.insert("end", "-1")
+            self.leds_dim.insert("end", "-1")
         else:
-            self.leds_off.insert("end", str(round(con_info.led_timeout / 60, 2)))
+            self.leds_dim.insert("end", str(round(con_info.led_dim / 60, 2)))
 
         self.leds_off.delete(0, len(self.leds_off.get()))
         if con_info.led_timeout == 0xffff:
@@ -454,7 +503,9 @@ class KeyboardSettings(Frame):
     def _cb(self, index):
         def callback(key):
             self.keymap[index] = key
-            self.buttons[index].configure(text=f"{BUTTON_NAMES[index]} ({chr(key)})")
+
+            key_str = chr(key) if key < 0x80 else f"NUM {NUM_KEYS[key - 0x80]}"
+            self.buttons[index].configure(text=f"{BUTTON_NAMES[index]} ({key_str})")
 
             self.update()
         return callback
@@ -468,9 +519,12 @@ class KeyboardSettings(Frame):
         self.buttons = [None] * len(self.keymap)
 
         def add_btn(idx, col, row, span=1):
+            key = self.keymap[idx]
+            key_str = chr(key) if key < 0x80 else f"NUM {NUM_KEYS[key - 0x80]}"
+
             btn = ttk.Button(
                 self.binding_frame,
-                text=f"{BUTTON_NAMES[idx]} ({chr(self.keymap[idx])})",
+                text=f"{BUTTON_NAMES[idx]} ({key_str})",
                 command=lambda *_: self._pick_key(idx, BUTTON_NAMES[idx])
             )
             btn.grid(column=col, row=row, columnspan=span, padx=2, pady=2)
@@ -483,7 +537,7 @@ class KeyboardSettings(Frame):
         add_btn(3, 3, 1)  # BT-D
         add_btn(4, 0, 2, 2)  # FX-L
         add_btn(5, 2, 2, 2)  # FX-R
-        Frame(self, height=20).grid(column=0, row=3, columnspan=4)
+        Frame(self.binding_frame, height=20).grid(column=0, row=3, columnspan=4)
         add_btn(7, 0, 4)  # EX-1
         add_btn(8, 1, 4)  # EX-2
         add_btn(9, 3, 4)  # EX-3
@@ -569,7 +623,7 @@ class GamepadSettings(Frame):
         add_btn(3, 3, 1)  # BT-D
         add_btn(4, 0, 2, 2)  # FX-L
         add_btn(5, 2, 2, 2)  # FX-R
-        Frame(self, height=20).grid(column=0, row=3, columnspan=4)
+        Frame(self.binding_frame, height=20).grid(column=0, row=3, columnspan=4)
         add_btn(7, 0, 4)  # EX-1
         add_btn(8, 1, 4)  # EX-2
         add_btn(9, 3, 4)  # EX-3
@@ -641,6 +695,198 @@ class MouseSettings(Frame):
             con_info.con_mode &= ~MOUSE_MODE
 
 
+class MacroSettings(Frame):
+    OPTIONS = [
+        "Custom key",
+        "Long macro 1",
+        "Long macro 2",
+        "Short macro 1",
+        "Short macro 2",
+        "Short macro 3",
+        "Short macro 4",
+    ]
+
+    def __init__(self, parent, update):
+        super().__init__(parent, padx=8, pady=8)
+        self.update = update
+        self._grid_y = 0
+
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=1)
+
+        self.large_macros = []
+
+        vcmd = (self.register(max32), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
+
+        grid(label(self, "Long macro 1 (max length 32):"), span=1)
+        self.lm_1 = grid(ttk.Entry(self, validate="key", validatecommand=vcmd), col=1, span=2, sticky="we")
+        self.lm_1.bind("<FocusOut>", lambda *_: self.update())
+        grid(label(self, "Long macro 2 (max length 32):"), span=1)
+        self.lm_2 = grid(ttk.Entry(self, validate="key", validatecommand=vcmd), col=1, span=2, sticky="we")
+        self.lm_2.bind("<FocusOut>", lambda *_: self.update())
+
+        self.sm_buttons = []
+        self.sm_keymap = []
+        self.sm_frames = []
+
+        for i in range(4):
+            grid(label(self, f"Short macro {i + 1}:"))
+            sm_frame = grid(Frame(self))
+            self.sm_frames.append(sm_frame)
+
+        grid(ttk.Separator(self), pady=8, sticky="we")
+
+        self.macro_layer = []
+        self.binding_frame = grid(Frame(self))
+        self.combos = []
+
+        self.keybinder = None
+
+    def create_sm_buttons(self):
+        for n, sm_frame in enumerate(self.sm_frames):
+            buttons = []
+            for i in range(10):
+                sm_frame.columnconfigure(i, weight=1)
+
+                buttons.append(ttk.Button(
+                    sm_frame,
+                    command=(lambda n, i: (lambda *_: self._pick_key(n, i)))(n, i)
+                ))
+                buttons[-1].grid(row=0, column=i, sticky="we")
+
+            self.sm_buttons.append(buttons)
+        self.update_sm_button_state()
+
+    def get_option(self, idx):
+        if self.macro_layer[idx] < 0xc0:
+            return 0
+        return self.macro_layer[idx] - 0xbf
+
+    def create_binding_combos(self):
+        self.combos = [None] * len(self.macro_layer)
+
+        def add_btn(idx, col, row, span=1):
+            combo = ttk.Combobox(
+                self.binding_frame,
+                values=self.OPTIONS,
+                width=20,
+            )
+            combo.set(f"{BUTTON_NAMES[idx]} ({self.OPTIONS[self.get_option(idx)]})")
+
+            def cb(*_):
+                self.macro_layer[idx] = combo.current()
+                if self.macro_layer[idx] != 0:
+                    self.macro_layer[idx] += 0xbf
+
+                combo.set(f"{BUTTON_NAMES[idx]} ({self.OPTIONS[self.get_option(idx)]})")
+                combo.selection_clear()
+                self.update_binding_button_state()
+                self.focus()
+                self.update()
+
+            combo.bind('<<ComboboxSelected>>', cb)
+            combo.grid(column=col, row=row * 2, columnspan=span, padx=2, pady=(2, 0))
+
+            button = ttk.Button(
+                self.binding_frame,
+                command=lambda *_: self._pick_key(5, idx),
+                width=19
+            )
+            button.grid(column=col, row=row * 2 + 1, columnspan=span, padx=2, pady=(0, 2))
+
+            self.combos[idx] = (combo, button)
+
+        add_btn(6, 1, 0, 2)  # Start
+        add_btn(0, 0, 1)  # BT-A
+        add_btn(1, 1, 1)  # BT-B
+        add_btn(2, 2, 1)  # BT-C
+        add_btn(3, 3, 1)  # BT-D
+        add_btn(4, 0, 2, 2)  # FX-L
+        add_btn(5, 2, 2, 2)  # FX-R
+        Frame(self.binding_frame, height=20).grid(column=0, row=6, columnspan=4)
+        add_btn(7, 0, 4)  # EX-1
+        add_btn(8, 1, 4)  # EX-2
+        add_btn(9, 3, 4)  # EX-3
+
+        self.update_binding_button_state()
+
+    def update_binding_button_state(self):
+        for key, (_, button) in zip(self.macro_layer, self.combos):
+            if key < 0xc0:
+                key_str = f"{chr(key)}" if key < 0x80 else f"NUM {NUM_KEYS[key - 0x80]}"
+                if key == 0:
+                    key_str = "Choose key"
+
+                button.configure(state="enabled", text=key_str)
+            else:
+                button.configure(state="disabled", text="Choose key")
+
+    def update_sm_button_state(self):
+        for macro in range(4):
+            seen_end = False
+            for i, j in zip(self.sm_buttons[macro], self.sm_keymap[macro]):
+                key_str = chr(j) if j < 0x80 else f"NUM {NUM_KEYS[j - 0x80]}"
+                if j == 0:
+                    key_str = ""
+
+                if seen_end:
+                    i.configure(state="disabled", text="")
+                else:
+                    i.configure(state="normal", text=key_str)
+
+                if j == 0:
+                    seen_end = True
+                    continue
+
+    def _cb(self, macro, index):
+        def callback(key):
+            if macro == 5:
+                self.macro_layer[index] = key
+                self.update_binding_button_state()
+            else:
+                self.sm_keymap[macro][index] = key
+                self.update_sm_button_state()
+            self.update()
+        return callback
+
+    def _pick_key(self, macro, index):
+        if self.keybinder is None:
+            self.keybinder = Keybinder(self, escape_valid=True)
+        if macro == 5:
+            self.keybinder.do_bind(BUTTON_NAMES[index], self.macro_layer[index], self._cb(macro, index))
+        else:
+            self.keybinder.do_bind("label", self.sm_keymap[macro][index], self._cb(macro, index))
+
+    def populate(self, con_info):
+        self.sm_keymap = [list(i.keys) for i in con_info.short_macros]
+        self.macro_layer = list(con_info.macro_layer)
+
+        self.lm_1.delete(0, len(self.lm_1.get()))
+        self.lm_1.insert("end", con_info.large_macros[0].keys.decode("latin-1"))
+        self.lm_2.delete(0, len(self.lm_2.get()))
+        self.lm_2.insert("end", con_info.large_macros[1].keys.decode("latin-1"))
+
+        if not self.sm_buttons:
+            self.create_sm_buttons()
+        if not self.combos:
+            self.create_binding_combos()
+
+    def fill(self, con_info):
+        # TODO: Configurable delay
+
+        for i, j in zip(con_info.short_macros, self.sm_keymap):
+            i.delay = 20
+            i.keys = (ctypes.c_uint8 * 10)(*j)
+
+        con_info.large_macros[0].delay = 20
+        con_info.large_macros[0].keys = self.lm_1.get().encode("latin-1")
+        con_info.large_macros[1].delay = 20
+        con_info.large_macros[1].keys = self.lm_2.get().encode("latin-1")
+
+        con_info.macro_layer = (ctypes.c_uint8 * 10)(*self.macro_layer)
+
+
 class GUI:
     def __init__(self):
         self.messages = []
@@ -683,6 +929,9 @@ class GUI:
 
         self.mouse_tab = MouseSettings(notebook, self._set_info)
         notebook.add(self.mouse_tab, text="Mouse")
+
+        self.macro_tab = MacroSettings(notebook, self._set_info)
+        notebook.add(self.macro_tab, text="Macros")
 
         grid(ttk.Button(self.df, text="Save", command=self.save), col=0, span=1)
         grid(ttk.Button(self.df, text="Reset", command=self.reset), col=2, span=1, sticky=tk.E)
@@ -737,6 +986,7 @@ class GUI:
         self.keyboard_tab.fill(self._con_info)
         self.gamepad_tab.fill(self._con_info)
         self.mouse_tab.fill(self._con_info)
+        self.macro_tab.fill(self._con_info)
 
     def _get_info(self):
         if self._serial is None:
@@ -760,6 +1010,7 @@ class GUI:
             self.keyboard_tab.populate(self._con_info)
             self.gamepad_tab.populate(self._con_info)
             self.mouse_tab.populate(self._con_info)
+            self.macro_tab.populate(self._con_info)
         except Exception:
             raise
             # TODO: More granular

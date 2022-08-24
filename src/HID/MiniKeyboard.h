@@ -5,12 +5,29 @@
 
 #include "Keymap.h"
 
+constexpr uint8_t MiniKeyboard_Keys = 10 + 1;
+
 typedef struct ATTRIBUTE_PACKED {
-    uint8_t buttons[10];
+    uint8_t buttons[MiniKeyboard_Keys];
+    union {
+        struct {
+            bool ctrl : 1;
+            bool shift : 1;
+            bool alt : 1;
+            bool gui : 1;
+            bool r_ctrl : 1;
+            bool r_shift : 1;
+            bool r_alt : 1;
+            bool r_gui : 1;
+        };
+        uint8_t modifiers;
+    };
+    uint8_t extra_button;
 } HID_MiniKeyboardReport_Data_t;
 
 class MiniKeyboard_ {
     uint8_t depressed;
+    uint8_t modifier_count[8];
     bool dirty;
 
    public:
@@ -18,6 +35,8 @@ class MiniKeyboard_ {
 
     MiniKeyboard_(void);
     void SendReport(void* data, int length);
+    void add_modifiers(uint8_t modifiers);
+    void remove_modifiers(uint8_t modifiers);
     bool press(KeyboardKeycode key);
     bool press(uint8_t key);
     void release(KeyboardKeycode key);

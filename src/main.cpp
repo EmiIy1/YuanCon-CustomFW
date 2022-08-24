@@ -146,10 +146,10 @@ void handle_macro_keys() {
 
         if (!(posedge_buttons & (1 << i))) continue;
 
-        if (con_state.macro_layer[i] & 0x80) {
+        if (con_state.macro_layer[i] > 0xbf) {
             // Sequence macro
 
-            uint8_t idx = con_state.macro_layer[i] - 0x80;
+            uint8_t idx = con_state.macro_layer[i] - 0xc0;
             if (idx < 2) {
                 for (uint8_t j = 0; j < len(con_state.large_macros[idx].keys); j++) {
                     if (!con_state.large_macros[idx].keys[j]) break;

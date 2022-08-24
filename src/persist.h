@@ -23,7 +23,7 @@ typedef struct {
 } large_macro_t;
 typedef struct {
     uint8_t delay;
-    char keys[10];
+    uint8_t keys[10];
 } short_macro_t;
 
 typedef struct {

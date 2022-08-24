@@ -57,7 +57,7 @@ class LargeMacro(Struct):
 class ShortMacro(Struct):
     _fields_ = [
         ("delay", ctypes.c_uint8),
-        ("keys", ctypes.c_char * 10),
+        ("keys", ctypes.c_uint8 * 10),
     ]
 
 

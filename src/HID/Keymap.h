@@ -623,22 +623,39 @@ static const uint16_t _asciimap[] PROGMEM = {
     // 7-bit ASCII codes end here
 
     // The following characters belong to ISO-8859-15
-    KEY_RESERVED,  // 128 - Unused
-    KEY_RESERVED,  // 129 - Unused
-    KEY_RESERVED,  // 130 - Unused
-    KEY_RESERVED,  // 131 - Unused
-    KEY_RESERVED,  // 132 - Unused
-    KEY_RESERVED,  // 133 - Unused
-    KEY_RESERVED,  // 134 - Unused
-    KEY_RESERVED,  // 135 - Unused
-    KEY_RESERVED,  // 136 - Unused
-    KEY_RESERVED,  // 137 - Unused
-    KEY_RESERVED,  // 138 - Unused
-    KEY_RESERVED,  // 139 - Unused
-    KEY_RESERVED,  // 140 - Unused
-    KEY_RESERVED,  // 141 - Unused
-    KEY_RESERVED,  // 142 - Unused
-    KEY_RESERVED,  // 143 - Unused
+    // ! The first 16 values here are used for the numpad
+    KEYPAD_0,
+    KEYPAD_1,
+    KEYPAD_2,
+    KEYPAD_3,
+    KEYPAD_4,
+    KEYPAD_5,
+    KEYPAD_6,
+    KEYPAD_7,
+    KEYPAD_8,
+    KEYPAD_9,
+    KEYPAD_ADD,
+    KEYPAD_SUBTRACT,
+    KEYPAD_MULTIPLY,
+    KEYPAD_DIVIDE,
+    KEYPAD_ENTER,
+    KEYPAD_DOT,
+    // KEY_RESERVED,  // 128 - Unused
+    // KEY_RESERVED,  // 129 - Unused
+    // KEY_RESERVED,  // 130 - Unused
+    // KEY_RESERVED,  // 131 - Unused
+    // KEY_RESERVED,  // 132 - Unused
+    // KEY_RESERVED,  // 133 - Unused
+    // KEY_RESERVED,  // 134 - Unused
+    // KEY_RESERVED,  // 135 - Unused
+    // KEY_RESERVED,  // 136 - Unused
+    // KEY_RESERVED,  // 137 - Unused
+    // KEY_RESERVED,  // 138 - Unused
+    // KEY_RESERVED,  // 139 - Unused
+    // KEY_RESERVED,  // 140 - Unused
+    // KEY_RESERVED,  // 141 - Unused
+    // KEY_RESERVED,  // 142 - Unused
+    // KEY_RESERVED,  // 143 - Unused
     KEY_RESERVED,  // 144 - Unused
     KEY_RESERVED,  // 145 - Unused
     KEY_RESERVED,  // 146 - Unused
