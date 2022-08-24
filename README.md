@@ -1,3 +1,6 @@
+# !! WARNING !!
+This is all very in-development. Don't expect things to just work out of the box at the moment. This **has** soft-bricked boards previously, so if you are not prepared to deal with that, don't install this at the moment.
+
 ## Controller Modes
 Rather than the conventional concept of "modes", the different input methods can be indepentendly toggled.
 
