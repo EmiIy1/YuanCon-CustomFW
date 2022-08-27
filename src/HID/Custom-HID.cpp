@@ -71,7 +71,7 @@ uint8_t CustomHID_::getShortName(char* name) {
 
 int CustomHID_::getDescriptor(USBSetup& setup) {
     // TODO: Make this configurable
-    static const uint8_t STRING_PRODUCT[] = "YuanCon (CFW)";
+    static const uint8_t STRING_PRODUCT[] = "YuanCon";
 
     if (setup.wValueH == USB_STRING_DESCRIPTOR_TYPE) {
         switch (setup.wValueL) {

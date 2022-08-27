@@ -15,8 +15,8 @@ from util import (
 )
 
 
-VENDOR_NAME = "YuanCon (CFW)"
-PRODUCT_NAME = "YuanCon (CFW)"
+VENDOR_NAME = "YuanCon"
+PRODUCT_NAME = "YuanCon"
 
 PERSIST_DATA_VERSION = 1
 
@@ -896,7 +896,7 @@ class GUI:
         self.root = tk.Tk()
         self.root.configure(bg="#fff")
         self.root.resizable(0, 0)
-        self.root.title("YuanCon (CFW) configuration tool")
+        self.root.title("YuanCon configuration tool")
 
         style = ttk.Style()
         style.configure("TCheckbutton", background="#fff", font=FONT)

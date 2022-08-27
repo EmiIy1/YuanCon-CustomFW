@@ -4,9 +4,9 @@
 #include <vendor.h>
 
 typedef struct ATTRIBUTE_PACKED {
-    uint16_t buttons;
     int16_t vol_x;
     int16_t vol_y;
+    uint16_t buttons;
 } HID_MiniGamepadReport_Data_t;
 
 class MiniGamepad_ {
