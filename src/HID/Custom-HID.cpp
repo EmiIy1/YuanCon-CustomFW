@@ -35,7 +35,7 @@ int CustomHID_::getInterface(uint8_t* interfaceCount) {
         D_INTERFACE(pluggedInterface, 1, USB_DEVICE_CLASS_HUMAN_INTERFACE, HID_SUBCLASS_NONE,
                     HID_PROTOCOL_NONE),
         D_HIDREPORT(descriptorSize),
-        D_ENDPOINT(USB_ENDPOINT_IN(pluggedEndpoint), USB_ENDPOINT_TYPE_INTERRUPT, 0x40, 0x01)
+        D_ENDPOINT(USB_ENDPOINT_IN(pluggedEndpoint), USB_ENDPOINT_TYPE_INTERRUPT, 0x40, 0)
     };
     return USBDevice.sendControl(&hidInterface, sizeof(hidInterface));
 }

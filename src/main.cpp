@@ -303,7 +303,7 @@ void loop() {
         }
     }
 
-    if (SerialUSB) do_serial();
+    if (SerialUSB.available()) do_serial();
     read_buttons();
     if (!LEDTimeout()) do_button_leds();
 
