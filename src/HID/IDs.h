@@ -1,11 +1,11 @@
-constexpr uint8_t HID_REPORTID_MINI_GAMEPAD = 1;
+constexpr uint8_t HID_REPORTID_MINI_CONTROL = 1;
 // USC is treating the konami PID/VID pair as an SDVX Pico, and asserting it's report ID 2.
 // For now, rather than PRing support into upstream USC, let's just make a compatible mode.
 constexpr uint8_t HID_REPORTID_PICO_LEDS = 2;
 constexpr uint8_t HID_REPORTID_LEDS = 3;
 constexpr uint8_t HID_REPORTID_MINI_MOUSE = 4;
 constexpr uint8_t HID_REPORTID_MINI_KEYBOARD = 5;
-constexpr uint8_t HID_REPORTID_MINI_CONTROL = 7;
+constexpr uint8_t HID_REPORTID_MINI_GAMEPAD = 6;
 
 constexpr uint8_t HID_Strings_Base = ISERIAL + 1;
 constexpr const char* HID_strings[] = {

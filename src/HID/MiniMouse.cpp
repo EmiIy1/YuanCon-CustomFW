@@ -16,6 +16,8 @@ static const uint8_t _hidMultiReportDescriptorMiniMouse[] PROGMEM = {
     HID_USAGE(Y),
     HID_LOGICAL_MINIMUM(2, -0x8000),
     HID_LOGICAL_MAXIMUM(2, 0x7fff),
+    HID_PHYSICAL_MINIMUM(2, -0x8000),
+    HID_PHYSICAL_MAXIMUM(2, 0x7fff),
     HID_REPORT_SIZE(16),
     HID_REPORT_COUNT(2),
     HID_INPUT(DATA, VARIABLE, RELATIVE),
