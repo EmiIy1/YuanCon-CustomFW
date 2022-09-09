@@ -256,8 +256,6 @@ void setup() {
     //     if (con_state.con_mode != old_cm) save_con_state();
     // }
 
-    SerialUSB.begin(921600);
-
     MiniGamepad.begin();
     HIDLeds.begin();
     MiniConsumer.begin();
@@ -277,8 +275,10 @@ void do_startup_mode_change() {
         button_leds = 0;
         handle_con_mode_buttons();
         blink++;
-        if (blink & 8) button_leds = 0;
-        else button_leds |= PinConf::START;
+        if (blink & 8)
+            button_leds = 0;
+        else
+            button_leds |= PinConf::START;
 
         write_button_leds();
         // We don't care about polling rate, so go with something more reasonable so the blink works

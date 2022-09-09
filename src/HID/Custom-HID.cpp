@@ -30,14 +30,23 @@ CustomHID_& CustomHID() {
 }
 
 int CustomHID_::getInterface(uint8_t* interfaceCount) {
-    *interfaceCount += 1;  // uses 1
-    HIDDescriptor hidInterface = {
-        D_INTERFACE(pluggedInterface, 1, USB_DEVICE_CLASS_HUMAN_INTERFACE, HID_SUBCLASS_NONE,
-                    HID_PROTOCOL_NONE),
-        D_HIDREPORT(descriptorSize),
-        D_ENDPOINT(USB_ENDPOINT_IN(pluggedEndpoint), USB_ENDPOINT_TYPE_INTERRUPT, 0x40, 0)
-    };
-    return USBDevice.sendControl(&hidInterface, sizeof(hidInterface));
+    *interfaceCount += HID_INTERFACES;
+
+    int sent = 0;
+    for (uint8_t interface = 0; interface < HID_INTERFACES; interface++) {
+        interfaces[interface] = pluggedInterface + interface;
+
+        HIDDescriptor hidInterface = {
+            D_INTERFACE(interfaces[interface], 1, USB_DEVICE_CLASS_HUMAN_INTERFACE,
+                        HID_SUBCLASS_NONE, HID_PROTOCOL_NONE),
+            D_HIDREPORT(descriptorSize[interface]),
+            D_ENDPOINT(USB_ENDPOINT_IN(pluggedEndpoint + interface), USB_ENDPOINT_TYPE_INTERRUPT,
+                       0x40, 0),
+        };
+        sent += USBDevice.sendControl(&hidInterface, sizeof(hidInterface));
+    }
+
+    return sent;
 }
 
 static void utox8(uint32_t val, char* s) {
@@ -123,43 +132,47 @@ int CustomHID_::getDescriptor(USBSetup& setup) {
     if (setup.wValueH != HID_REPORT_DESCRIPTOR_TYPE) return 0;
 
     // In a HID Class Descriptor wIndex cointains the interface number
-    if (setup.wIndex != pluggedInterface) return 0;
+    uint8_t interface = 0;
+    for (; interface < sizeof interfaces; interface++)
+        if (interfaces[interface] == setup.wIndex) goto setup_noreturn;
+    return 0;
+setup_noreturn:
 
     // USBDevice.packMessages stores data into a 256-byte buffer. This is... too small. Far too
     // small :).
-    uint8_t* buffer = (uint8_t*)malloc(setup.wLength);
+    uint8_t* buffer = (uint8_t*)malloc(descriptorSize[interface]);
     uint8_t* workBuffer = buffer;
 
     HIDSubDescriptor* node;
-    for (node = rootNode; node; node = node->next) {
+    for (node = rootNode[interface]; node; node = node->next) {
         memcpy(workBuffer, node->data, node->length);
         workBuffer += node->length;
     }
-    int res = USBDevice.sendControl(buffer, setup.wLength);
+    int res = USBDevice.sendControl(buffer, descriptorSize[interface]);
     free(buffer);
     if (res == -1) return -1;
-    return setup.wLength;
+    return descriptorSize[interface];
 }
 
-void CustomHID_::AppendCallback(HIDCallback* callback) {
-    if (!rootCallback) {
-        rootCallback = callback;
+void CustomHID_::AppendCallback(HIDCallback* callback, uint8_t interface) {
+    if (!rootCallback[interface]) {
+        rootCallback[interface] = callback;
     } else {
-        HIDCallback* current = rootCallback;
+        HIDCallback* current = rootCallback[interface];
         while (current->next) current = current->next;
         current->next = callback;
     }
 }
 
-void CustomHID_::AppendDescriptor(HIDSubDescriptor* node) {
-    if (!rootNode) {
-        rootNode = node;
+void CustomHID_::AppendDescriptor(HIDSubDescriptor* node, uint8_t interface) {
+    if (!rootNode[interface]) {
+        rootNode[interface] = node;
     } else {
-        HIDSubDescriptor* current = rootNode;
+        HIDSubDescriptor* current = rootNode[interface];
         while (current->next) current = current->next;
         current->next = node;
     }
-    descriptorSize += node->length;
+    descriptorSize[interface] += node->length;
 }
 
 int CustomHID_::SendReport(uint8_t id, const void* data, int len) {
@@ -170,7 +183,11 @@ int CustomHID_::SendReport(uint8_t id, const void* data, int len) {
 }
 
 bool CustomHID_::setup(USBSetup& setup) {
-    if (pluggedInterface != setup.wIndex) return false;
+    uint8_t interface = 0;
+    for (; interface < sizeof interfaces; interface++)
+        if (interfaces[interface] == setup.wIndex) goto setup_noreturn;
+    return false;
+setup_noreturn:
 
     uint8_t request = setup.bRequest;
     uint8_t requestType = setup.bmRequestType;
@@ -203,7 +220,7 @@ bool CustomHID_::setup(USBSetup& setup) {
         }
         if (request == HID_SET_REPORT) {
             if (setup.wValueH == HID_REPORT_TYPE_OUTPUT) {
-                HIDCallback* current = rootCallback;
+                HIDCallback* current = rootCallback[interface];
                 while (current) {
                     if (current->report_id == setup.wValueL) {
                         return current->callback(setup.wLength);
@@ -219,10 +236,10 @@ bool CustomHID_::setup(USBSetup& setup) {
 }
 
 CustomHID_::CustomHID_(void)
-    : PluggableUSBModule(1, 1, epType),
-      rootCallback(NULL),
-      rootNode(NULL),
-      descriptorSize(0),
+    : PluggableUSBModule(HID_INTERFACES, HID_INTERFACES, epType),
+      rootCallback{ NULL },
+      rootNode{ NULL },
+      descriptorSize{ 0 },
       protocol(1),
       idle(1) {
     epType[0] = USB_ENDPOINT_TYPE_INTERRUPT | USB_ENDPOINT_IN(0);

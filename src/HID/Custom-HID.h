@@ -1,4 +1,5 @@
 #include <HID.h>
+#include "IDs.h"
 
 typedef struct HIDCallback_ {
     bool (*callback)(uint16_t length);
@@ -11,8 +12,8 @@ class CustomHID_ : public PluggableUSBModule {
     CustomHID_(void);
     int begin(void);
     int SendReport(uint8_t id, const void* data, int len);
-    void AppendDescriptor(HIDSubDescriptor* node);
-    void AppendCallback(HIDCallback* callback);
+    void AppendDescriptor(HIDSubDescriptor* node, uint8_t interface);
+    void AppendCallback(HIDCallback* callback, uint8_t interface);
     uint8_t getShortName(char* name);
 
    protected:
@@ -23,11 +24,13 @@ class CustomHID_ : public PluggableUSBModule {
    private:
     unsigned int epType[1];
 
-    HIDCallback_* rootCallback;
-    HIDSubDescriptor* rootNode;
-    uint16_t descriptorSize;
+    uint8_t interfaces[HID_INTERFACES];
+    HIDCallback_* rootCallback[HID_INTERFACES];
+    HIDSubDescriptor* rootNode[HID_INTERFACES];
+    uint16_t descriptorSize[HID_INTERFACES];
 
     uint8_t protocol;
     uint8_t idle;
 };
 CustomHID_& CustomHID();
+CustomHID_& CustomHID_Lighting();

@@ -3,7 +3,6 @@
 #include <hid_def.h>
 
 #include "Custom-HID.h"
-#include "IDs.h"
 
 static const uint8_t _hidMultiReportDescriptorMiniGamepad[] PROGMEM = {
     /* Gamepad with 10 buttons and 2 axis*/
@@ -93,7 +92,7 @@ MiniGamepad_::MiniGamepad_(void) {
     static HIDSubDescriptor node(_hidMultiReportDescriptorMiniGamepad,
                                  sizeof(_hidMultiReportDescriptorMiniGamepad));
 
-    CustomHID().AppendDescriptor(&node);
+    CustomHID().AppendDescriptor(&node, HID_INTERFACE_GAMEPAD);
 
     report.vol_x = report.vol_y = report.buttons = 0;
     last_report.vol_x = last_report.vol_y = last_report.buttons = 0;

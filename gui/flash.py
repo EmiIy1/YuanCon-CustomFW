@@ -9,6 +9,7 @@ from tkinter.filedialog import askopenfilename
 from tkinter.ttk import Button, Entry, Progressbar
 
 import serial
+from serial.serialutil import SerialTimeoutException
 
 from util import real_path, find_port, RESET_BAUDRATE, CONFIG_BAUDRATE, SAM_BA_BAUDRATE, SAMD21_DEVICE_ID
 from samba import SAMD21
@@ -98,7 +99,11 @@ class Flasher():
 
     def is_com_yuan_cfw(self, com):
         com.baudrate = SAM_BA_BAUDRATE
-        com.write(b"V")
+        try:
+            com.write(b"V")
+        except SerialTimeoutException:
+            print("F:Serial timeout!")
+            return False
         time.sleep(0.5)
         if not com.in_waiting:
             com.baudrate = CONFIG_BAUDRATE

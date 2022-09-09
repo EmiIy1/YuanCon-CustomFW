@@ -3,7 +3,6 @@
 #include <hid_def.h>
 
 #include "Custom-HID.h"
-#include "IDs.h"
 
 static const uint8_t _hidMultiReportDescriptorMiniMouse[] PROGMEM = {
     HID_USAGE_PAGE(GENERIC_DESKTOP),
@@ -29,7 +28,7 @@ MiniMouse_::MiniMouse_(void) {
     static HIDSubDescriptor node(_hidMultiReportDescriptorMiniMouse,
                                  sizeof(_hidMultiReportDescriptorMiniMouse));
 
-    CustomHID().AppendDescriptor(&node);
+    CustomHID().AppendDescriptor(&node, HID_INTERFACE_MOUSE);
     report.x_axis = report.y_axis = 0;
 }
 void MiniMouse_::SendReport(void* data, int length) {

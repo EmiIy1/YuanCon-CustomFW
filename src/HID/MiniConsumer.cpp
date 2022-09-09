@@ -3,7 +3,6 @@
 #include <hid_def.h>
 
 #include "Custom-HID.h"
-#include "IDs.h"
 #include "Keymap.h"
 
 static const uint8_t _hidMultiReportDescriptorMiniConsumer[] PROGMEM = {
@@ -28,7 +27,7 @@ MiniConsumer_::MiniConsumer_(void) {
     static HIDSubDescriptor node(_hidMultiReportDescriptorMiniConsumer,
                                  sizeof(_hidMultiReportDescriptorMiniConsumer));
 
-    CustomHID().AppendDescriptor(&node);
+    CustomHID().AppendDescriptor(&node, HID_INTERFACE_CONTROL);
     report.button = 0;
 }
 void MiniConsumer_::SendReport(void* data, int length) {

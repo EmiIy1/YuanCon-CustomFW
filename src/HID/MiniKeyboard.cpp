@@ -3,7 +3,6 @@
 #include <hid_def.h>
 
 #include "Custom-HID.h"
-#include "IDs.h"
 #include "Keymap.h"
 
 static const uint8_t _hidMultiReportDescriptorMiniKeyboard[] PROGMEM = {
@@ -39,7 +38,7 @@ MiniKeyboard_::MiniKeyboard_(void) {
     static HIDSubDescriptor node(_hidMultiReportDescriptorMiniKeyboard,
                                  sizeof(_hidMultiReportDescriptorMiniKeyboard));
 
-    CustomHID().AppendDescriptor(&node);
+    CustomHID().AppendDescriptor(&node, HID_INTERFACE_KEYBOARD);
     depressed = 0;
     dirty = false;
 }
@@ -108,7 +107,6 @@ void MiniKeyboard_::release(KeyboardKeycode key) {
     }
 };
 void MiniKeyboard_::releaseAll(void) {
-    if (!depressed) return;
     depressed = 0;
     report.modifiers = 0;
     memset(modifier_count, 0, sizeof modifier_count);

@@ -3,7 +3,6 @@
 #include <hid_def.h>
 
 #include "Custom-HID.h"
-#include "IDs.h"
 
 HID_LedsReport_Data_t hid_led_data = { 0 };
 bool hid_dirty = false;
@@ -88,6 +87,8 @@ bool leds_callback(uint16_t length) {
     last_hid = millis();
     hid_dirty = true;
 
+    USBDevice.armSend(EP0, NULL, 0);
+
     return true;
 }
 
@@ -111,6 +112,8 @@ bool pico_callback(uint16_t length) {
     last_hid = millis();
     hid_dirty = true;
 
+    USBDevice.armSend(EP0, NULL, 0);
+
     return true;
 }
 
@@ -118,13 +121,13 @@ HIDLeds_::HIDLeds_(void) {
     static HIDSubDescriptor node(_hidReportLEDs, sizeof(_hidReportLEDs));
     static HIDCallback callback = { &leds_callback, HID_REPORTID_LEDS, NULL };
 
-    CustomHID().AppendDescriptor(&node);
-    CustomHID().AppendCallback(&callback);
+    CustomHID().AppendDescriptor(&node, HID_INTERFACE_LIGHTS);
+    CustomHID().AppendCallback(&callback, HID_INTERFACE_LIGHTS);
 
     static HIDSubDescriptor nodePico(_hidReportLEDsPico, sizeof(_hidReportLEDsPico));
     static HIDCallback callbackPico = { &pico_callback, HID_REPORTID_PICO_LEDS, NULL };
-    CustomHID().AppendDescriptor(&nodePico);
-    CustomHID().AppendCallback(&callbackPico);
+    CustomHID().AppendDescriptor(&nodePico, HID_INTERFACE_PICO_LIGHTS);
+    CustomHID().AppendCallback(&callbackPico, HID_INTERFACE_PICO_LIGHTS);
 }
 void HIDLeds_::begin(void) { return; }
 
