@@ -1,10 +1,10 @@
 #include "HID/MiniGamepad.h"
 #include "HID/MiniKeyboard.h"
 #include "HID/MiniMouse.h"
+#include "analog.h"
 #include "buttons.h"
 #include "persist.h"
 #include "pins.h"
-#include "vol.h"
 
 void do_keyboard() {
     for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
@@ -15,19 +15,15 @@ void do_keyboard() {
     MiniKeyboard.write();
 }
 
-void do_mouse() {
-    MiniMouse.move(VolX.delta, VolY.delta);
-    VolX.ticked();
-    VolY.ticked();
-}
+void do_mouse() { MiniMouse.move(analog_inputs[0].delta, analog_inputs[1].delta); }
 
 constexpr float encoder_ppr = 360.0;
 constexpr float encoder_scale = 0xffff / (encoder_ppr * 2);
 
 void do_joystick(bool absolute) {
     if (absolute) {
-        MiniGamepad.report.vol_x = VolX.val * encoder_scale;
-        MiniGamepad.report.vol_y = VolY.val * encoder_scale;
+        MiniGamepad.report.vol_x = analog_inputs[0].val * encoder_scale;
+        MiniGamepad.report.vol_y = analog_inputs[1].val * encoder_scale;
     } else {
         MiniGamepad.report.vol_x = vol_x_dir > 0 ? 0x7fff : vol_x_dir < 0 ? -0x8000 : 0;
         MiniGamepad.report.vol_y = vol_y_dir > 0 ? 0x7fff : vol_y_dir < 0 ? -0x8000 : 0;

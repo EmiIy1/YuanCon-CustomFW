@@ -4,7 +4,7 @@
 #include "buttons.h"
 #include "persist.h"
 #include "pins.h"
-#include "vol.h"
+#include "analog.h"
 
 uint16_t button_leds;
 
@@ -19,6 +19,8 @@ wing_leds_t wing_rgb_l_leds;
 wing_leds_t wing_rgb_r_leds;
 CRGB start_rgb_l_leds[PinConf::start_rgb_count];
 CRGB start_rgb_r_leds[PinConf::start_rgb_count];
+
+CRGB button_rgb_leds[sizeof PinConf::buttons];
 
 #define toward_zero(v)    \
     do {                  \
@@ -77,6 +79,9 @@ void setup_leds() {
                                                       PinConf::wing_rgb_count);
     FastLED.addLeds<WS2812, PinConf::start_rgb_l, GRB>(start_rgb_l_leds, PinConf::start_rgb_count);
     FastLED.addLeds<WS2812, PinConf::start_rgb_r, GRB>(start_rgb_r_leds, PinConf::start_rgb_count);
+
+    FastLED.addLeds<WS2812_Minty, PinConf::bt_a.led, GRB>(&(button_rgb_leds[0]), 1);
+
     blank_led();
     FastLED.show();
 }

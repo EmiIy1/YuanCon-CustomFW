@@ -18,7 +18,7 @@ from util import (
 VENDOR_NAME = "YuanCon"
 PRODUCT_NAME = "YuanCon"
 
-PERSIST_DATA_VERSION = 1
+PERSIST_DATA_VERSION = 2
 
 FONT = ("SegoeUI", 10)
 FONT_B = ("SegoeUI", 10, "bold")

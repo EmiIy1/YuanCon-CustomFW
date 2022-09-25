@@ -3,13 +3,13 @@
 #include "HID/MiniGamepad.h"
 #include "HID/MiniKeyboard.h"
 #include "HID/MiniMouse.h"
+#include "analog.h"
 #include "buttons.h"
 #include "kdb_mouse_joy.h"
 #include "leds.h"
 #include "persist.h"
 #include "pins.h"
 #include "serial.h"
-#include "vol.h"
 
 unsigned long nvm_save_requested = 0;
 constexpr unsigned long nvm_save_delay = 5000;
@@ -121,10 +121,10 @@ void handle_ex_buttons() {
 
         if (!(buttons & KeyMap::led_mode) && buttons & KeyMap::led_colour && LED_has_colour()) {
             // TODO: Come up with a way to change all six zones without PC configuration
-            con_state.zone_colours[0].h += VolX.dir;
+            con_state.zone_colours[0].h += analog_inputs[0].dir;
             con_state.zone_colours[1] = con_state.zone_colours[0];
             con_state.zone_colours[2] = con_state.zone_colours[0];
-            con_state.zone_colours[3].h += VolY.dir;
+            con_state.zone_colours[3].h += analog_inputs[1].dir;
             con_state.zone_colours[4] = con_state.zone_colours[3];
             con_state.zone_colours[5] = con_state.zone_colours[3];
         }
@@ -187,15 +187,15 @@ void handle_macro_keys() {
     static uint8_t tick = 0;
     if ((++tick) == 10) {
         tick = 0;
-        if (VolX.dir < 0) MiniConsumer.write(MEDIA_VOLUME_DOWN);
-        if (VolX.dir > 0) MiniConsumer.write(MEDIA_VOLUME_UP);
+        if (analog_inputs[0].dir < 0) MiniConsumer.write(MEDIA_VOLUME_DOWN);
+        if (analog_inputs[0].dir > 0) MiniConsumer.write(MEDIA_VOLUME_UP);
     }
 
     static uint8_t tick2 = 0;
     if ((++tick2) == 3) {
         tick2 = 0;
         // LEDs aren't changed linearly because the brightness isn't perceived that way
-        if (VolY.dir < 0) {
+        if (analog_inputs[1].dir < 0) {
             if (con_state.led_brightness) {
                 if (con_state.led_brightness < 31)
                     con_state.led_brightness--;
@@ -210,7 +210,7 @@ void handle_macro_keys() {
 
             nvm_save_requested = micros();
         }
-        if (VolY.dir > 0) {
+        if (analog_inputs[1].dir > 0) {
             if (con_state.led_brightness < 255) {
                 if (con_state.led_brightness < 31)
                     con_state.led_brightness++;
@@ -237,7 +237,6 @@ void setup() {
     }
     load_con_state();
 
-    // setup_vol();
     setup_leds();
 
     read_buttons();
@@ -306,6 +305,7 @@ void loop() {
     if (SerialUSB.available()) do_serial();
     read_buttons();
     if (!LEDTimeout()) do_button_leds();
+    for (uint8_t i = 0; i < NUM_ANALOGS; i++) analog_inputs[i].tick();
 
     if (started_with_start) {
         if (!(buttons & PinConf::START))
@@ -324,12 +324,12 @@ void loop() {
         handle_macro_keys();
     }
 
-    vol_x_dir_led = VolX.dir;
-    vol_y_dir_led = VolY.dir;
-    vol_x_dir = VolX.dir;
-    vol_y_dir = VolY.dir;
+    vol_x_dir_led = analog_inputs[0].dir;
+    vol_y_dir_led = analog_inputs[1].dir;
+    vol_x_dir = analog_inputs[0].dir;
+    vol_y_dir = analog_inputs[1].dir;
     // Reset for the next tick
-    VolX.dir = VolY.dir = 0;
+    analog_inputs[0].dir = analog_inputs[1].dir = 0;
 
     if (con_state.con_mode & CON_MODE_KEYBOARD) do_keyboard();
     if (con_state.con_mode & CON_MODE_MOUSE) do_mouse();

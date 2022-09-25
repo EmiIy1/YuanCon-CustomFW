@@ -55,6 +55,20 @@ const persistent_data_t default_con_state {
     .led_dim = 60 * 5,  // Dim after 5 minutes
     .led_timeout = 60 * 15,  // Turn off after 15 minutes
     .led_brightness = 127,
+    //
+    .num_analogs = NUM_ANALOGS,
+    .analogs = {
+        {
+            .deadzone = 0,
+            .deadzone_bounceback = 0,
+            .bounceback_timer = 500,
+        },
+        {
+            .deadzone = 0,
+            .deadzone_bounceback = 0,
+            .bounceback_timer = 500,
+        },
+    }
 };
 persistent_data_t con_state = default_con_state;
 

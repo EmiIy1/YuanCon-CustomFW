@@ -61,6 +61,14 @@ class ShortMacro(Struct):
     ]
 
 
+class AnalogConfig(Struct):
+    _fields_ = [
+        ("deadzone", ctypes.c_uint16),
+        ("deadzone_bounceback", ctypes.c_uint8),
+        ("bounceback_timer", ctypes.c_uint16),
+    ]
+
+
 class ConInfo(Struct):
     _fields_ = [
         ("led_mode", LedModeInfo),
@@ -83,4 +91,7 @@ class ConInfo(Struct):
         ("led_dim", ctypes.c_uint16),
         ("led_timeout", ctypes.c_uint16),
         ("led_brightness", ctypes.c_uint8),
+
+        ("num_analogs", ctypes.c_uint8),
+        ("analogs", AnalogConfig * 2),  # todo: use num_analogs
     ]

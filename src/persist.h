@@ -1,6 +1,7 @@
 #pragma once
 #include <vendor.h>
 
+#include "analog.h"
 #include "leds.h"
 #include "pins.h"
 
@@ -15,7 +16,7 @@ constexpr uint8_t con_mode_kb_mouse = CON_MODE_KEYBOARD | CON_MODE_MOUSE;
 constexpr uint8_t con_mode_joystick_position = CON_MODE_GAMEPAD_POS;
 constexpr uint8_t con_mode_joystick_direction = CON_MODE_GAMEPAD_DIR;
 
-constexpr uint8_t PERSIST_DATA_VERSION = 1;
+constexpr uint8_t PERSIST_DATA_VERSION = 2;
 
 typedef struct {
     uint8_t delay;
@@ -47,6 +48,13 @@ typedef struct {
     uint16_t led_dim;
     uint16_t led_timeout;
     uint8_t led_brightness;
+
+    uint8_t num_analogs;
+    struct {
+        uint16_t deadzone;
+        uint8_t deadzone_bounceback;
+        uint16_t bounceback_timer;
+    } analogs[NUM_ANALOGS];
 } persistent_data_t;
 
 extern const persistent_data_t default_con_state;
