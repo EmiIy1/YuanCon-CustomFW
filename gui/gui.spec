@@ -5,7 +5,7 @@ block_cipher = None
 a = Analysis(['main.py'],
              binaries=[],
              datas=[
-                ("../config.def", ".."),
+                ("../config.def", "."),
              ],
              hiddenimports=[],
              hookspath=[],

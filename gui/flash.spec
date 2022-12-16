@@ -6,6 +6,7 @@ a = Analysis(['flash.py'],
              binaries=[],
              datas=[
                 ("updater.png", "."),
+                ("../config.def", "."),
              ],
              hiddenimports=[],
              hookspath=[],
