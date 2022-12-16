@@ -34,7 +34,10 @@ class MiniKeyboard_ {
     HID_MiniKeyboardReport_Data_t report;
 
     MiniKeyboard_(void);
-    void SendReport(void* data, int length);
+    void begin(void);
+    int SendReport(void* data, int length);
+    int write(void);
+
     void add_modifiers(uint8_t modifiers);
     void remove_modifiers(uint8_t modifiers);
     bool press(KeyboardKeycode key);
@@ -42,8 +45,6 @@ class MiniKeyboard_ {
     void release(KeyboardKeycode key);
     void release(uint8_t key);
     void releaseAll(void);
-    void write(void);
-    void begin(void);
 };
 
 extern MiniKeyboard_ MiniKeyboard;

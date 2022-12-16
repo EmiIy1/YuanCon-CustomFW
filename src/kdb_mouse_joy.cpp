@@ -7,12 +7,10 @@
 #include "pins.h"
 
 void do_keyboard() {
-    for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
+    for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
         if (posedge_buttons & (1 << i)) MiniKeyboard.press(con_state.keymap[i]);
         if (negedge_buttons & (1 << i)) MiniKeyboard.release(con_state.keymap[i]);
     }
-
-    MiniKeyboard.write();
 }
 
 void do_mouse() { MiniMouse.move(analog_inputs[0].delta, analog_inputs[1].delta); }
@@ -31,11 +29,9 @@ void do_joystick(bool absolute) {
         vol_x_dir = vol_y_dir = 0;
     }
 
-    for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
+    for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
         if (posedge_buttons & (1 << i)) MiniGamepad.report.buttons |= 1 << con_state.gamepad_map[i];
         if (negedge_buttons & (1 << i))
             MiniGamepad.report.buttons &= ~(1 << con_state.gamepad_map[i]);
     }
-
-    MiniGamepad.write();
 }

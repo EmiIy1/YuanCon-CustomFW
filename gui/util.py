@@ -12,10 +12,6 @@ BOOTLOADER_VID_PID = (0x1b4f, 0x8d21)
 # VID/PID pair allocated for the custom firmware
 CFW_VID_PID = (0x04D8, 0xE72E)
 
-RESET_BAUDRATE = 1200
-CONFIG_BAUDRATE = 250000
-SAM_BA_BAUDRATE = 921600
-
 SAMD21_DEVICE_ID = 0x10010305
 
 KEYBOARD_MODE = 1
@@ -63,6 +59,5 @@ def get_com_serial(com):
 
 __all__ = (
     "KONAMI_VID_PID", "KONAMI_SMOL_VID_PID", "BOOTLOADER_VID_PID", "CFW_VID_PID",
-    "RESET_BAUDRATE", "CONFIG_BAUDRATE", "SAM_BA_BAUDRATE",
     "real_path", "find_port", "get_com_serial",
 )

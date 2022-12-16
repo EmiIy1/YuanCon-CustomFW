@@ -30,23 +30,33 @@ MiniConsumer_::MiniConsumer_(void) {
     CustomHID().AppendDescriptor(&node, HID_INTERFACE_CONTROL);
     report.button = 0;
 }
-void MiniConsumer_::SendReport(void* data, int length) {
-    CustomHID().SendReport(HID_REPORTID_MINI_CONTROL, data, length);
+int MiniConsumer_::SendReport(void* data, int length) {
+    return CustomHID().SendReport(HID_REPORTID_MINI_CONTROL, data, length);
 }
-bool MiniConsumer_::write(ConsumerKeycode key) {
+int MiniConsumer_::write(void) {
+    if (!dirty && release_next) {
+        release();
+        release_next = false;
+    }
+
+    if (!dirty) return 0;
+    dirty = false;
+    return SendReport(&report, sizeof report);
+}
+
+bool MiniConsumer_::tap(ConsumerKeycode key) {
     if (!press(key)) return false;
-    release();
+    release_next = true;
     return true;
 };
 bool MiniConsumer_::press(ConsumerKeycode key) {
     if (report.button) return false;
     report.button = key;
-    SendReport(&report, sizeof report);
     return true;
 };
 void MiniConsumer_::release() {
     report.button = 0;
-    SendReport(&report, sizeof report);
+    dirty = true;
 };
 void MiniConsumer_::begin(void) { return; }
 

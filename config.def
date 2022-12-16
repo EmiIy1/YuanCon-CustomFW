@@ -1,0 +1,15 @@
+// Controller spec
+#define NUM_ANALOGS 2
+#define NUM_BUTTONS 10
+#define NUM_LED_ZONES 6
+
+// Data spec
+#define PERSIST_DATA_VERSION 2
+#define NUM_MACROS 11
+// ! If this value ever exceeds 256, macro_addresses needs promoted to uint16_t
+#define MACRO_BYTES 256
+
+// Don't touch these!
+#define RESET_BAUDRATE 1200
+#define CONFIG_BAUDRATE 250000
+#define SAM_BA_BAUDRATE 921600

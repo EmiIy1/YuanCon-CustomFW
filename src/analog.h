@@ -37,6 +37,13 @@ class GenericAnalog {
             // Easy case; just mirror physical values into the public members
             dir = *ptr_phys_dir;
             delta = *ptr_phys_delta;
+            // if (*ptr_phys_val) {
+            //     (*ptr_phys_val) = 0;
+            //     delta = -1;
+            // } else {
+            //     (*ptr_phys_val) = 1;
+            //     delta = 1;
+            // }
             val = *ptr_phys_val;
         } else {
             deadzone_delta += *ptr_phys_delta;
@@ -127,5 +134,4 @@ class OpticalEncoder : public GenericAnalog {
     }
 };
 
-constexpr uint8_t NUM_ANALOGS = 2;
 extern GenericAnalog analog_inputs[NUM_ANALOGS];

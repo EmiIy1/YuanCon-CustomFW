@@ -3,7 +3,7 @@
 #include "HID/Lighting.h"
 #include "pins.h"
 
-unsigned long debounce[len(PinConf::buttons)];
+unsigned long debounce[NUM_BUTTONS];
 constexpr unsigned long debounce_time = 30000;  // us = 3ms
 uint16_t buttons;
 uint16_t posedge_buttons;
@@ -12,7 +12,7 @@ uint16_t negedge_buttons;
 void read_buttons() {
     auto now = micros();
     uint16_t new_buttons = 0;
-    for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
+    for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
         if (digitalRead(PinConf::buttons[i].btn)) {
             if (now - debounce[i] > debounce_time) debounce[i] = 0;
         } else {

@@ -31,15 +31,21 @@ MiniMouse_::MiniMouse_(void) {
     CustomHID().AppendDescriptor(&node, HID_INTERFACE_MOUSE);
     report.x_axis = report.y_axis = 0;
 }
-void MiniMouse_::SendReport(void* data, int length) {
-    CustomHID().SendReport(HID_REPORTID_MINI_MOUSE, data, length);
+int MiniMouse_::SendReport(void* data, int length) {
+    return CustomHID().SendReport(HID_REPORTID_MINI_MOUSE, data, length);
+}
+
+int MiniMouse_::write() {
+    if (!moved) return 0;
+    moved = false;
+    return SendReport(&report, sizeof(report));
 }
 
 void MiniMouse_::move(int16_t dx, int16_t dy) {
     if (!(dx || dy)) return;
     report.x_axis = dx;
     report.y_axis = dy;
-    SendReport(&report, sizeof(report));
+    moved = true;
 }
 void MiniMouse_::begin(void) { return; }
 

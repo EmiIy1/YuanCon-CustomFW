@@ -11,7 +11,8 @@ from tkinter.ttk import Button, Entry, Progressbar
 import serial
 from serial.serialutil import SerialTimeoutException
 
-from util import real_path, find_port, RESET_BAUDRATE, CONFIG_BAUDRATE, SAM_BA_BAUDRATE, SAMD21_DEVICE_ID
+from util import real_path, find_port, SAMD21_DEVICE_ID
+from config import RESET_BAUDRATE, CONFIG_BAUDRATE, SAM_BA_BAUDRATE
 from samba import SAMD21
 
 
@@ -129,6 +130,7 @@ class Flasher():
         com.write(b"s")
         version = com.read(1)[0]
         size = com.read(1)[0]
+        size |= com.read(1)[0] << 8
         config = com.read(size)
         return version, config
 
@@ -219,7 +221,7 @@ class Flasher():
                     break
 
             if name:
-                time.sleep(0.2)
+                time.sleep(0.5)
                 self.try_write_settings(name, settings)
 
         if not (self.args.auto and self.args.close_after):

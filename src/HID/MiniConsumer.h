@@ -11,14 +11,19 @@ typedef struct ATTRIBUTE_PACKED {
 
 class MiniConsumer_ {
    public:
-    HID_MiniConsumerReport_Data_t report;
-
     MiniConsumer_(void);
-    void SendReport(void* data, int length);
-    bool press(ConsumerKeycode key);
-    bool write(ConsumerKeycode key);
-    void release();
     void begin(void);
+    int SendReport(void* data, int length);
+    int write(void);
+
+    bool tap(ConsumerKeycode key);
+    bool press(ConsumerKeycode key);
+    void release(void);
+
+   private:
+    HID_MiniConsumerReport_Data_t report;
+    bool release_next = true;
+    bool dirty = false;
 };
 
 extern MiniConsumer_ MiniConsumer;

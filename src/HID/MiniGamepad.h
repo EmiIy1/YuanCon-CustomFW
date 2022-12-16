@@ -30,9 +30,9 @@ class MiniGamepad_ {
     HID_MiniGamepadReport_Data_t last_report;
 
     MiniGamepad_(void);
-    void SendReport(void* data, int length);
-    void write(void);
     void begin(void);
+    int SendReport(void* data, int length);
+    int write(void);
 };
 
 extern MiniGamepad_ MiniGamepad;

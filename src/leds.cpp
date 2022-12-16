@@ -1,11 +1,12 @@
 #include "leds.h"
 
 #include "HID/Lighting.h"
+#include "analog.h"
 #include "buttons.h"
 #include "persist.h"
 #include "pins.h"
-#include "analog.h"
 
+uint8_t disable_led_modes = 0;
 uint16_t button_leds;
 
 typedef union {
@@ -19,8 +20,7 @@ wing_leds_t wing_rgb_l_leds;
 wing_leds_t wing_rgb_r_leds;
 CRGB start_rgb_l_leds[PinConf::start_rgb_count];
 CRGB start_rgb_r_leds[PinConf::start_rgb_count];
-
-CRGB button_rgb_leds[sizeof PinConf::buttons];
+CRGB button_rgb_leds[NUM_BUTTONS];
 
 #define toward_zero(v)    \
     do {                  \
@@ -37,6 +37,8 @@ void blank_led() {
         start_rgb_l_leds[i] = CRGB(0, 0, 0);
         start_rgb_r_leds[i] = CRGB(0, 0, 0);
     }
+
+    for (uint8_t i = 0; i < len(button_rgb_leds); i++) button_rgb_leds[i] = CRGB(0, 0, 0);
 }
 
 void render_led_shoot_start(int8_t shoot, CHSV colour) {
@@ -80,7 +82,19 @@ void setup_leds() {
     FastLED.addLeds<WS2812, PinConf::start_rgb_l, GRB>(start_rgb_l_leds, PinConf::start_rgb_count);
     FastLED.addLeds<WS2812, PinConf::start_rgb_r, GRB>(start_rgb_r_leds, PinConf::start_rgb_count);
 
-    FastLED.addLeds<WS2812_Minty, PinConf::bt_a.led, GRB>(&(button_rgb_leds[0]), 1);
+    // TODO: Do some nasty compiler stuff to make this a compile-time for loop
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[0].led, GRB>(&(button_rgb_leds[0]), 1);
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[1].led, GRB>(&(button_rgb_leds[1]), 1);
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[2].led, GRB>(&(button_rgb_leds[2]), 1);
+    // What?? BT-D is wired on SCK and MOSI, and for some reason we need to bind the LED onto
+    // SCK not MOSI, even though the data is coming out on MOSI
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[3].btn, GRB>(&(button_rgb_leds[3]), 1);
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[4].led, GRB>(&(button_rgb_leds[4]), 1);
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[5].led, GRB>(&(button_rgb_leds[5]), 1);
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[6].led, GRB>(&(button_rgb_leds[6]), 1);
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[7].led, GRB>(&(button_rgb_leds[7]), 1);
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[8].led, GRB>(&(button_rgb_leds[8]), 1);
+    FastLED.addLeds<WS2812_Minty, PinConf::buttons[9].led, GRB>(&(button_rgb_leds[9]), 1);
 
     blank_led();
     FastLED.show();
@@ -283,11 +297,43 @@ void do_button_leds() {
     }
 }
 
+#define MINTY_SUPPORT
+
 // Output the final value of button_leds to pins
 void write_button_leds() {
     for (uint8_t i = 0; i < len(hid_led_data.leds.singles); i++) {
-        digitalWrite(PinConf::buttons[i].led, button_leds & (1 << i));
+        if (!(con_state.minty_config.mask & (1 << i)))
+            digitalWrite(PinConf::buttons[i].led, button_leds & (1 << i));
     }
+}
+
+#ifdef MINTY_SUPPORT
+void do_minty_leds() {
+    static uint8_t frame = 0;
+
+    if (disable_led_modes) {
+        disable_led_modes = 0;
+        for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
+            if (!(con_state.minty_config.mask & (1 << i))) continue;
+
+            button_rgb_leds[i] = (button_leds & (1 << i)) ? CRGB(255, 255, 255) : CRGB(0, 0, 0);
+        }
+    } else {
+        CHSV rainbow = CHSV(frame, con_state.saturation, 255);
+
+        for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
+            if (!(con_state.minty_config.mask & (1 << i))) continue;
+            button_rgb_leds[i] = (button_leds & (1 << i))
+                                     ? ((con_state.minty_config.rainbow_on & (1 << i))
+                                            ? rainbow
+                                            : con_state.minty_config.colours_on[i])
+                                     : ((con_state.minty_config.rainbow_off & (1 << i))
+                                            ? rainbow
+                                            : con_state.minty_config.colours_off[i]);
+        }
+        frame += 1;
+    }
+#endif
 }
 
 uint32_t last_interaction;
@@ -305,6 +351,8 @@ void do_leds() {
         do_laser_leds();
     }
 
+    do_minty_leds();
+
     static bool leds_were_off = false;
 
     // If LEDs aren't being used, make sure they're blank, then stop writing to them.
@@ -313,7 +361,11 @@ void do_leds() {
             leds_were_off = true;
 
             blank_led();
-            FastLED.show();
+            // Main LEDs
+            FastLED[0].showLeds();
+            FastLED[1].showLeds();
+            FastLED[2].showLeds();
+            FastLED[3].showLeds();
         }
     } else {
         leds_were_off = false;
@@ -321,9 +373,20 @@ void do_leds() {
         uint8_t brightness = con_state.led_brightness;
         if (LEDShouldDim()) brightness /= 4;
         FastLED.setBrightness(brightness);
-        // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that this call is unreasonably
-        // ! espensive.
-        FastLED.show();
+        // ! NOTE: Yuan packed so many LEDs into this bad boy (90!) that these
+        // ! calls are unreasonably espensive.
+        // Main LEDs
+        FastLED[0].showLeds();
+        FastLED[1].showLeds();
+        FastLED[2].showLeds();
+        FastLED[3].showLeds();
+    }
+
+    // Always write button LEDs, but only the ones that're mintys!
+    for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
+        if (con_state.minty_config.mask & (1 << i)) {
+            FastLED[4 + i].showLeds();
+        }
     }
 
     led_animation_frame += 3;

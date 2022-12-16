@@ -10,12 +10,15 @@ typedef struct ATTRIBUTE_PACKED {
 
 class MiniMouse_ {
    public:
+    bool moved = false;
     HID_MiniMouseReport_Data_t report;
 
     MiniMouse_(void);
-    void SendReport(void* data, int length);
-    void move(int16_t dx, int16_t dy);
     void begin(void);
+    int SendReport(void* data, int length);
+    int write(void);
+
+    void move(int16_t dx, int16_t dy);
 };
 
 extern MiniMouse_ MiniMouse;

@@ -25,6 +25,8 @@ typedef struct {
     led_laser_mode_t lasers;
 } led_mode_config_t;
 
+extern uint8_t disable_led_modes;
+
 /*
 The LED zones are:
 

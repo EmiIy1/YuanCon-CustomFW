@@ -4,27 +4,28 @@ import tkinter as tk
 from tkinter import messagebox
 import tkinter.ttk as ttk
 from tkinter.colorchooser import askcolor
+from tkinter.scrolledtext import ScrolledText
 
 import serial
 
-from persist import ConInfo, CHSV
+from macro import compile_macro, MacroOp
+from persist import ConInfo, CHSV, CRGB, NUM_MACROS, MACRO_BYTES
 from util import (
-    CONFIG_BAUDRATE, SAM_BA_BAUDRATE,
     get_com_serial, find_port,
     KEYBOARD_MODE, GAMEPAD_MODE, MOUSE_MODE, GAMEPAD_MODE_POS, GAMEPAD_MODE_DIR
 )
+from config import PERSIST_DATA_VERSION, CONFIG_BAUDRATE, SAM_BA_BAUDRATE, NUM_BUTTONS
 
 
 VENDOR_NAME = "YuanCon"
 PRODUCT_NAME = "YuanCon"
-
-PERSIST_DATA_VERSION = 2
 
 FONT = ("SegoeUI", 10)
 FONT_B = ("SegoeUI", 10, "bold")
 
 BUTTON_NAMES = ["BT-A", "BT-B", "BT-C", "BT-D", "FX-L", "FX-R", "Start", "EX-1", "EX-2", "EX-3"]
 NUM_KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "/", "*", "ENTER", "."]
+assert len(BUTTON_NAMES) == NUM_BUTTONS
 
 
 class Modal(tk.Toplevel):
@@ -696,16 +697,6 @@ class MouseSettings(Frame):
 
 
 class MacroSettings(Frame):
-    OPTIONS = [
-        "Custom key",
-        "Long macro 1",
-        "Long macro 2",
-        "Short macro 1",
-        "Short macro 2",
-        "Short macro 3",
-        "Short macro 4",
-    ]
-
     def __init__(self, parent, update):
         super().__init__(parent, padx=8, pady=8)
         self.update = update
@@ -715,87 +706,69 @@ class MacroSettings(Frame):
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=1)
 
-        self.large_macros = []
-
-        vcmd = (self.register(max32), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
-
-        grid(label(self, "Long macro 1 (max length 32):"), span=1)
-        self.lm_1 = grid(ttk.Entry(self, validate="key", validatecommand=vcmd), col=1, span=2, sticky="we")
-        self.lm_1.bind("<FocusOut>", lambda *_: self.update())
-        grid(label(self, "Long macro 2 (max length 32):"), span=1)
-        self.lm_2 = grid(ttk.Entry(self, validate="key", validatecommand=vcmd), col=1, span=2, sticky="we")
-        self.lm_2.bind("<FocusOut>", lambda *_: self.update())
-
-        self.sm_buttons = []
-        self.sm_keymap = []
-        self.sm_frames = []
-
-        for i in range(4):
-            grid(label(self, f"Short macro {i + 1}:"))
-            sm_frame = grid(Frame(self))
-            self.sm_frames.append(sm_frame)
+        notebook = ttk.Notebook(self)
+        self.macro_texts = [None] * NUM_MACROS
+        for i in range(NUM_MACROS):
+            notebook.add(self.create_macro_editor(i), text=f"Macro {i + 1}")
+        grid(notebook, span=3, sticky="we")
 
         grid(ttk.Separator(self), pady=8, sticky="we")
 
-        self.macro_layer = []
+        self.macro_assignments = [0] * NUM_MACROS
+        self.compiled_macros = [MacroOp.END.value] * NUM_MACROS
+
         self.binding_frame = grid(Frame(self))
         self.combos = []
 
         self.keybinder = None
 
-    def create_sm_buttons(self):
-        for n, sm_frame in enumerate(self.sm_frames):
-            buttons = []
-            for i in range(10):
-                sm_frame.columnconfigure(i, weight=1)
+    def create_macro_editor(self, num):
+        frame = tk.Frame()
+        self.macro_texts[num] = ScrolledText(frame)
+        self.macro_texts[num].pack(expand=True, fill="both")
+        error = tk.Label(frame)
+        error.pack()
 
-                buttons.append(ttk.Button(
-                    sm_frame,
-                    command=(lambda n, i: (lambda *_: self._pick_key(n, i)))(n, i)
-                ))
-                buttons[-1].grid(row=0, column=i, sticky="we")
+        def compile_(*_):
+            success, data = compile_macro(self.macro_texts[num].get("1.0", "end"))
+            if success:
+                error.configure(text="Macro OK", fg="#494")
+                self.compiled_macros[num] = data
+            else:
+                error.configure(text=data, fg="#f00")
 
-            self.sm_buttons.append(buttons)
-        self.update_sm_button_state()
+        self.macro_texts[num].bind("<KeyRelease>", compile_)
+
+        return frame
 
     def get_option(self, idx):
-        if self.macro_layer[idx] < 0xc0:
-            return 0
-        return self.macro_layer[idx] - 0xbf
+        if self.macro_assignments[idx] == 0:
+            return "Unassigned"
+        return f"Macro {self.macro_assignments[idx]}"
 
     def create_binding_combos(self):
-        self.combos = [None] * len(self.macro_layer)
+        self.combos = [None] * 10
 
         def add_btn(idx, col, row, span=1):
             combo = ttk.Combobox(
                 self.binding_frame,
-                values=self.OPTIONS,
+                values=["Unassigned", *[f"Macro {i + 1}" for i in range(16)]],
                 width=20,
             )
-            combo.set(f"{BUTTON_NAMES[idx]} ({self.OPTIONS[self.get_option(idx)]})")
+            combo.set(f"{BUTTON_NAMES[idx]} ({self.get_option(idx)})")
 
             def cb(*_):
-                self.macro_layer[idx] = combo.current()
-                if self.macro_layer[idx] != 0:
-                    self.macro_layer[idx] += 0xbf
+                self.macro_assignments[idx] = combo.current()
 
-                combo.set(f"{BUTTON_NAMES[idx]} ({self.OPTIONS[self.get_option(idx)]})")
+                combo.set(f"{BUTTON_NAMES[idx]} ({self.get_option(idx)})")
                 combo.selection_clear()
-                self.update_binding_button_state()
                 self.focus()
                 self.update()
 
             combo.bind('<<ComboboxSelected>>', cb)
             combo.grid(column=col, row=row * 2, columnspan=span, padx=2, pady=(2, 0))
 
-            button = ttk.Button(
-                self.binding_frame,
-                command=lambda *_: self._pick_key(5, idx),
-                width=19
-            )
-            button.grid(column=col, row=row * 2 + 1, columnspan=span, padx=2, pady=(0, 2))
-
-            self.combos[idx] = (combo, button)
+            self.combos[idx] = combo
 
         add_btn(6, 1, 0, 2)  # Start
         add_btn(0, 0, 1)  # BT-A
@@ -809,82 +782,207 @@ class MacroSettings(Frame):
         add_btn(8, 1, 4)  # EX-2
         add_btn(9, 3, 4)  # EX-3
 
-        self.update_binding_button_state()
-
-    def update_binding_button_state(self):
-        for key, (_, button) in zip(self.macro_layer, self.combos):
-            if key < 0xc0:
-                key_str = f"{chr(key)}" if key < 0x80 else f"NUM {NUM_KEYS[key - 0x80]}"
-                if key == 0:
-                    key_str = "Choose key"
-
-                button.configure(state="enabled", text=key_str)
-            else:
-                button.configure(state="disabled", text="Choose key")
-
-    def update_sm_button_state(self):
-        for macro in range(4):
-            seen_end = False
-            for i, j in zip(self.sm_buttons[macro], self.sm_keymap[macro]):
-                key_str = chr(j) if j < 0x80 else f"NUM {NUM_KEYS[j - 0x80]}"
-                if j == 0:
-                    key_str = ""
-
-                if seen_end:
-                    i.configure(state="disabled", text="")
-                else:
-                    i.configure(state="normal", text=key_str)
-
-                if j == 0:
-                    seen_end = True
-                    continue
-
-    def _cb(self, macro, index):
-        def callback(key):
-            if macro == 5:
-                self.macro_layer[index] = key
-                self.update_binding_button_state()
-            else:
-                self.sm_keymap[macro][index] = key
-                self.update_sm_button_state()
-            self.update()
-        return callback
-
-    def _pick_key(self, macro, index):
-        if self.keybinder is None:
-            self.keybinder = Keybinder(self, escape_valid=True)
-        if macro == 5:
-            self.keybinder.do_bind(BUTTON_NAMES[index], self.macro_layer[index], self._cb(macro, index))
-        else:
-            self.keybinder.do_bind("label", self.sm_keymap[macro][index], self._cb(macro, index))
-
     def populate(self, con_info):
-        self.sm_keymap = [list(i.keys) for i in con_info.short_macros]
-        self.macro_layer = list(con_info.macro_layer)
-
-        self.lm_1.delete(0, len(self.lm_1.get()))
-        self.lm_1.insert("end", con_info.large_macros[0].keys.decode("latin-1"))
-        self.lm_2.delete(0, len(self.lm_2.get()))
-        self.lm_2.insert("end", con_info.large_macros[1].keys.decode("latin-1"))
-
-        if not self.sm_buttons:
-            self.create_sm_buttons()
+        self.macro_assignments = list(con_info.macro_layer)
         if not self.combos:
             self.create_binding_combos()
+        else:
+            for n, i in enumerate(self.combos):
+                i.set(f"{BUTTON_NAMES[n]} ({self.get_option(n)})")
 
     def fill(self, con_info):
-        # TODO: Configurable delay
+        addresses = []
+        compiled = b""
+        for i in self.compiled_macros:
+            if i not in compiled:
+                addresses.append(len(compiled))
+                compiled += i
+            else:
+                addresses.append(compiled.index(i))
+        if len(compiled) > MACRO_BYTES:
+            # TODO: URGENT: Handle this better
+            messagebox.showerror("Macro Error", f"Compiled macros size exceeds {MACRO_BYTES} bytes!")
+            return
 
-        for i, j in zip(con_info.short_macros, self.sm_keymap):
-            i.delay = 20
-            i.keys = (ctypes.c_uint8 * 10)(*j)
+        con_info.macros.macro_addresses = (ctypes.c_uint8 * NUM_MACROS)(*addresses)
+        compiled.ljust(MACRO_BYTES, MacroOp.END.value)
+        con_info.macros.data = (ctypes.c_uint8 * MACRO_BYTES)(*compiled)
 
-        con_info.large_macros[0].delay = 20
-        con_info.large_macros[0].keys = self.lm_1.get().encode("latin-1")
-        con_info.large_macros[1].delay = 20
-        con_info.large_macros[1].keys = self.lm_2.get().encode("latin-1")
+        con_info.macro_layer = (ctypes.c_uint8 * 10)(*self.macro_assignments)
 
-        con_info.macro_layer = (ctypes.c_uint8 * 10)(*self.macro_layer)
+
+class MintyConfigurator(Modal):
+    FONT = ("SegoeUI", 10)
+    LABELS = ["Zone 1", "Zone 2", "Zone 3", "Zone 1", "Zone 2", "Zone 3"]
+
+    def __init__(self, parent, rainbow, colour, callback):
+        super().__init__(parent)
+        self.configure(bg="#fff")
+        self.title("Select colours")
+        self.resizable(0, 0)
+
+        self.iv_ron = tk.IntVar()
+        self.iv_ron.set(rainbow[0])
+        self.iv_roff = tk.IntVar()
+        self.iv_roff.set(rainbow[1])
+
+        ttk.Checkbutton(
+            self, text="Rainbow when pressed", variable=self.iv_ron
+        ).grid(row=0, column=1, pady=16)
+        ttk.Checkbutton(
+            self, text="Rainbow when unpressed", variable=self.iv_roff
+        ).grid(row=0, column=0, pady=16)
+
+        self.colour = list(colour)
+
+        self.frames = []
+        for i in range(2):
+            frame = tk.Frame(self, bg=f"#{colour[i].r:02x}{colour[i].g:02x}{colour[i].b:02x}")
+            ttk.Button(
+                frame,
+                text="Colour when pressed",
+                command=self._pick_colour(i)
+            ).pack(padx=32, pady=16)
+            frame.grid(row=1, column=1 - i)
+            self.frames.append(frame)
+
+        ttk.Button(self, text="Done", command=lambda *_: self._close()).grid(column=1, row=2, pady=16)
+
+        self.callback = callback
+
+    def _close(self):
+        super()._close()
+        self.callback(
+            (not not self.iv_ron.get(), not not self.iv_roff.get()),
+            self.colour
+        )
+
+    def _pick_colour(self, idx):
+        def _callback(*_):
+            new = askcolor(color=f"#{self.colour[idx].r:02x}{self.colour[idx].g:02x}{self.colour[idx].b:02x}")
+            if not new[0]:
+                return
+            (r, g, b), hex_ = new
+
+            self.colour[idx] = CRGB(r, g, b)
+            self.frames[idx].configure(background=hex_)
+        return _callback
+
+
+class MintySettings(Frame):
+    def __init__(self, parent, update):
+        super().__init__(parent, padx=8, pady=8)
+        self.update = update
+        self._grid_y = 0
+
+        self.buttons = [None] * len(BUTTON_NAMES)
+        self.rainbow = [(False, False)] * NUM_BUTTONS
+        self.colours = [(None, None)] * NUM_BUTTONS
+
+        def add_btn(idx, col, row, span=1):
+            frm = tk.Frame(self)
+            iv = tk.IntVar()
+
+            tk.Label(frm, text=BUTTON_NAMES[idx]).grid(row=0, column=0)
+            chk = ttk.Checkbutton(
+                frm,
+                text="Enable",
+                variable=iv,
+                command=lambda *_: self.update()
+            )
+            chk.grid(row=0, column=1)
+            conf = ttk.Button(
+                frm,
+                text="Configure",
+                command=lambda *_: self.do_config(idx)
+            )
+            conf.grid(row=0, column=2)
+
+            frm.grid(column=col, row=row, columnspan=span, padx=2, pady=2)
+            self.buttons[idx] = (iv, conf)
+
+        add_btn(6, 1, 0, 2)  # Start
+        add_btn(0, 0, 1)  # BT-A
+        add_btn(1, 1, 1)  # BT-B
+        add_btn(2, 2, 1)  # BT-C
+        add_btn(3, 3, 1)  # BT-D
+        add_btn(4, 0, 2, 2)  # FX-L
+        add_btn(5, 2, 2, 2)  # FX-R
+        Frame(self, height=20).grid(column=0, row=3, columnspan=4)
+        add_btn(7, 0, 4)  # EX-1
+        add_btn(8, 1, 4)  # EX-2
+        add_btn(9, 3, 4)  # EX-3
+
+        ttk.Button(
+            self, text="Load default config", command=self.do_default
+        ).grid(row=6, column=0, sticky="W", pady=(16, 0))
+
+    def do_default(self):
+        _default = {
+            # BTs
+            0: CRGB(0, 0, 255),
+            1: CRGB(0, 0, 255),
+            2: CRGB(0, 0, 255),
+            3: CRGB(0, 0, 255),
+            # FXs
+            4: CRGB(255, 0, 63),
+            5: CRGB(255, 0, 63),
+            # Start
+            6: CRGB(0, 0, 255),
+        }
+        for i in range(NUM_BUTTONS):
+            self.rainbow[i] = (False, False)
+            self.colours[i] = (
+                _default.get(i, CRGB(255, 255, 255)),
+                CRGB(0, 0, 0),
+            )
+        self.update()
+
+    def do_config(self, idx):
+        MintyConfigurator(
+            self,
+            self.rainbow[idx],
+            self.colours[idx],
+            self.done_config(idx)
+        )
+
+    def done_config(self, idx):
+        def _done_config(rainbow, colour):
+            self.rainbow[idx] = rainbow
+            self.colours[idx] = colour
+            self.update()
+        return _done_config
+
+    def populate(self, con_info):
+        for n, (iv, conf) in enumerate(self.buttons):
+            iv.set(bool(con_info.minty_config.mask & (1 << n)))
+            conf.configure(state="normal" if iv.get() else "disabled")
+
+            self.rainbow[n] = (
+                bool(con_info.minty_config.rainbow_on & (1 << n)),
+                bool(con_info.minty_config.rainbow_off & (1 << n))
+            )
+            self.colours[n] = (
+                con_info.minty_config.colours_on[n],
+                con_info.minty_config.colours_off[n]
+            )
+
+    def fill(self, con_info):
+        con_info.minty_config.mask = 0
+        con_info.minty_config.rainbow_on = 0
+        con_info.minty_config.rainbow_off = 0
+
+        for n, (iv, _) in enumerate(self.buttons):
+            if iv.get():
+                con_info.minty_config.mask |= 1 << n
+
+            if self.rainbow[n][0]:
+                con_info.minty_config.rainbow_on |= 1 << n
+            if self.rainbow[n][1]:
+                con_info.minty_config.rainbow_off |= 1 << n
+
+            con_info.minty_config.colours_on[n] = self.colours[n][0]
+            con_info.minty_config.colours_off[n] = self.colours[n][1]
 
 
 class GUI:
@@ -916,7 +1014,7 @@ class GUI:
         grid(self.coninfo_frame, pady=(0, 10), sticky=tk.W + tk.E)
 
         notebook = ttk.Notebook(self.df)
-        grid(notebook, sticky=tk.W + tk.E)#.pack(fill="both", expand=True)
+        grid(notebook, sticky=tk.W + tk.E)
 
         self.lighting_tab = LightingSettings(notebook, self._set_info)
         notebook.add(self.lighting_tab, text="Lighting")
@@ -933,6 +1031,9 @@ class GUI:
         self.macro_tab = MacroSettings(notebook, self._set_info)
         notebook.add(self.macro_tab, text="Macros")
 
+        self.minty_tab = MintySettings(notebook, self._set_info)
+        notebook.add(self.minty_tab, text="Minty LEDs")
+
         grid(ttk.Button(self.df, text="Save", command=self.save), col=0, span=1)
         grid(ttk.Button(self.df, text="Reset", command=self.reset), col=2, span=1, sticky=tk.E)
 
@@ -945,7 +1046,10 @@ class GUI:
     def on_close(self):
         self.fill()
         if self._initial_config is not None and bytes(self._con_info) != self._initial_config:
-            resp = messagebox.askyesnocancel("Unsaved changes", "There are unsaved changes!\nWould you like to save them?")
+            resp = messagebox.askyesnocancel(
+                "Unsaved changes",
+                "There are unsaved changes!\nWould you like to save them?"
+            )
             if resp is None:
                 return
 
@@ -987,6 +1091,7 @@ class GUI:
         self.gamepad_tab.fill(self._con_info)
         self.mouse_tab.fill(self._con_info)
         self.macro_tab.fill(self._con_info)
+        self.minty_tab.fill(self._con_info)
 
     def _get_info(self):
         if self._serial is None:
@@ -995,6 +1100,7 @@ class GUI:
         self._serial.write(b's')
         version = self._serial.read(1)[0]
         size = self._serial.read(1)[0]
+        size |= self._serial.read(1)[0] << 8
         config = self._serial.read(size)
         # TODO: Nicer, lol.
         assert version == PERSIST_DATA_VERSION
@@ -1011,6 +1117,7 @@ class GUI:
             self.gamepad_tab.populate(self._con_info)
             self.mouse_tab.populate(self._con_info)
             self.macro_tab.populate(self._con_info)
+            self.minty_tab.populate(self._con_info)
         except Exception:
             raise
             # TODO: More granular

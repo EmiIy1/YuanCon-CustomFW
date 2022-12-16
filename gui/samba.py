@@ -6,7 +6,8 @@ import time
 
 import serial
 
-from util import SAM_BA_BAUDRATE, find_port
+from util import find_port
+from config import SAM_BA_BAUDRATE
 
 
 BOOTLOADER_START = 0x0000

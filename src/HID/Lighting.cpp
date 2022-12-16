@@ -5,8 +5,8 @@
 #include "Custom-HID.h"
 
 HID_LedsReport_Data_t hid_led_data = { 0 };
-bool hid_dirty = false;
 unsigned long last_hid = 0;
+bool hid_need_ack = false;
 
 #define _HID_LEDs(x, n)                                                                          \
     HID_USAGE_PAGE(ORDINAL), HID_USAGE2(1, n + 1), HID_COLLECTION(LOGICAL), HID_USAGE_PAGE(LED), \
@@ -52,9 +52,6 @@ static const uint8_t _hidReportLEDs[] PROGMEM = {
 };
 
 // Spoofed SDVX Pico for USC
-constexpr uint8_t PicoNoSingle = 7;
-constexpr uint8_t PicoNoRGB = 2;
-constexpr uint8_t PicoNoLED = PicoNoSingle + (PicoNoRGB * 3);
 static const uint8_t _hidReportLEDsPico[] PROGMEM = {
     HID_USAGE_PAGE(GENERIC_DESKTOP),
     HID_USAGE(UNDEFINED),
@@ -85,34 +82,25 @@ bool leds_callback(uint16_t length) {
     if (length != sizeof hid_led_data) return false;
     USBDevice.recvControl(&hid_led_data, sizeof hid_led_data);
     last_hid = millis();
-    hid_dirty = true;
-
-    USBDevice.armSend(EP0, NULL, 0);
+    hid_need_ack = true;
 
     return true;
 }
 
-typedef struct {
-    uint8_t report_id;
-    uint8_t bta, btb, btc, btd, fxl, fxr, st;
-    CRGB left;
-    CRGB right;
-} pocketPicoReport;
 bool pico_callback(uint16_t length) {
-    pocketPicoReport report;
+    HID_PicoLedsReport_Data_t report;
     if (length != sizeof report) return false;
-    USBDevice.recvControl(&report, sizeof report);
-    memcpy(hid_led_data.leds.singles, &(report.bta), PicoNoSingle);
-    memcpy(hid_led_data.leds.rgb[0].raw, &(report.left), 3);
-    memcpy(hid_led_data.leds.rgb[1].raw, &(report.right), 3);
-    memcpy(hid_led_data.leds.rgb[2].raw, &(report.left), 3);
-    memcpy(hid_led_data.leds.rgb[3].raw, &(report.right), 3);
+    USBDevice.recvControl(&report, sizeof report + 1);
+    memcpy(hid_led_data.leds.singles, report.leds.singles, PicoNoSingle);
+    hid_led_data.leds.rgb[0] = report.leds.rgb[0];
+    hid_led_data.leds.rgb[1] = report.leds.rgb[1];
+    hid_led_data.leds.rgb[2] = report.leds.rgb[0];
+    hid_led_data.leds.rgb[3] = report.leds.rgb[1];
     memset(hid_led_data.leds.rgb[4].raw, 0, 3);
+    memset(hid_led_data.leds.rgb[5].raw, 0, 3);
 
     last_hid = millis();
-    hid_dirty = true;
-
-    USBDevice.armSend(EP0, NULL, 0);
+    hid_need_ack = true;
 
     return true;
 }

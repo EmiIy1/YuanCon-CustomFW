@@ -16,6 +16,10 @@ class CustomHID_ : public PluggableUSBModule {
     void AppendCallback(HIDCallback* callback, uint8_t interface);
     uint8_t getShortName(char* name);
 
+    int FlushReports(void);
+
+    uint32_t sent = 0;
+
    protected:
     int getInterface(uint8_t* interfaceCount);
     int getDescriptor(USBSetup& setup);
@@ -23,6 +27,11 @@ class CustomHID_ : public PluggableUSBModule {
 
    private:
     unsigned int epType[1];
+    uint8_t base_interface;
+    uint8_t base_endpoint;
+
+    uint8_t rep_buf[256];
+    uint8_t rep_len = 0;
 
     uint8_t interfaces[HID_INTERFACES];
     HIDCallback_* rootCallback[HID_INTERFACES];

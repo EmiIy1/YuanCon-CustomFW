@@ -16,45 +16,45 @@ constexpr uint8_t con_mode_kb_mouse = CON_MODE_KEYBOARD | CON_MODE_MOUSE;
 constexpr uint8_t con_mode_joystick_position = CON_MODE_GAMEPAD_POS;
 constexpr uint8_t con_mode_joystick_direction = CON_MODE_GAMEPAD_DIR;
 
-constexpr uint8_t PERSIST_DATA_VERSION = 2;
-
 typedef struct {
-    uint8_t delay;
-    char keys[32];
-} large_macro_t;
-typedef struct {
-    uint8_t delay;
-    uint8_t keys[10];
-} short_macro_t;
+    uint16_t mask;
+    uint16_t rainbow_on;
+    uint16_t rainbow_off;
+    CRGB colours_on[NUM_BUTTONS];
+    CRGB colours_off[NUM_BUTTONS];
+} minty_config_t;
 
 typedef struct {
     led_mode_config_t led_mode;
     bool auto_hid;
     bool reactive_buttons;
     uint8_t con_mode;
-    char keymap[len(PinConf::buttons)];
-    uint8_t gamepad_map[len(PinConf::buttons)];
+    char keymap[NUM_BUTTONS];
+    uint8_t gamepad_map[NUM_BUTTONS];
 
     led_button_mode_t button_lights;
-    CHSV zone_colours[6];
+    CHSV zone_colours[NUM_LED_ZONES];
     uint8_t saturation;
-    led_zone_mode_t zone_modes[6];
+    led_zone_mode_t zone_modes[NUM_LED_ZONES];
+    minty_config_t minty_config;
 
-    large_macro_t large_macros[2];
-    short_macro_t short_macros[4];
-    uint8_t tiny_macro_speed;
-    uint8_t macro_layer[len(PinConf::buttons)];
+    uint8_t macro_layer[NUM_BUTTONS];
 
     uint16_t led_dim;
     uint16_t led_timeout;
     uint8_t led_brightness;
 
-    uint8_t num_analogs;
     struct {
         uint16_t deadzone;
         uint8_t deadzone_bounceback;
         uint16_t bounceback_timer;
     } analogs[NUM_ANALOGS];
+
+    struct {
+        // ! See comment by MACRO_BYTES
+        uint8_t macro_addresses[NUM_MACROS];
+        uint8_t data[MACRO_BYTES];
+    } macros;
 } persistent_data_t;
 
 extern const persistent_data_t default_con_state;

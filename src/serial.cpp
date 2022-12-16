@@ -80,10 +80,10 @@ void do_samba() {
     }
 }
 
-void do_serial() {
+void tick_serial() {
     if (!SerialUSB.available()) return;
 
-    if (SerialUSB.baud() == 921600) return do_samba();
+    if (SerialUSB.baud() == SAM_BA_BAUDRATE) return do_samba();
 
     uint8_t prefix = SerialUSB.read();
     switch (prefix) {
@@ -104,8 +104,8 @@ void do_serial() {
         case 's':
             // Get board config
             SerialUSB.write(PERSIST_DATA_VERSION);
-            // TODO: This is going to overflow 255 at some point!
-            SerialUSB.write(sizeof con_state);
+            SerialUSB.write((sizeof con_state) & 0xff);
+            SerialUSB.write(((sizeof con_state) >> 8) & 0xff);
             SerialUSB.write((uint8_t *)&con_state, sizeof con_state);
             break;
         case 'c':

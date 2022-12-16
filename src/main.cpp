@@ -1,3 +1,4 @@
+#include "HID/Custom-HID.h"
 #include "HID/Lighting.h"
 #include "HID/MiniConsumer.h"
 #include "HID/MiniGamepad.h"
@@ -7,6 +8,7 @@
 #include "buttons.h"
 #include "kdb_mouse_joy.h"
 #include "leds.h"
+#include "macro.h"
 #include "persist.h"
 #include "pins.h"
 #include "serial.h"
@@ -70,9 +72,10 @@ void handle_ex_buttons() {
     } else if (allowed_quick_mode_change &&
                (buttons & KeyMap::change_mode) == KeyMap::change_mode) {
         // Change controller mode
+        disable_led_modes = 1;
         button_leds = 0;
         handle_con_mode_buttons();
-        if (blink_tick & 8) button_leds = 0;
+        if (blink_tick & 256) button_leds = 0;
     } else if (buttons & KeyMap::led_mode) {
         if (posedge_buttons & KeyMap::change_wing) {
             if ((++*((uint8_t *)&con_state.zone_modes[LedZoneWTL])) == _no_led_zone_modes)
@@ -104,6 +107,7 @@ void handle_ex_buttons() {
             con_state.reactive_buttons = !con_state.reactive_buttons;
         }
 
+        disable_led_modes = 1;
         button_leds = 0;
         if (buttons & KeyMap::change_wing) button_leds |= (1 << con_state.zone_modes[LedZoneWTL]);
         if (buttons & KeyMap::change_start) button_leds |= (1 << con_state.zone_modes[LedZoneSL]);
@@ -138,57 +142,24 @@ void handle_ex_buttons() {
 }
 
 void handle_macro_keys() {
-    for (uint8_t i = 0; i < len(con_state.macro_layer); i++) {
+    disable_led_modes = 1;
+    for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
         if (!con_state.macro_layer[i]) continue;
 
         // Light up the buttons that have macros assigned
         button_leds |= 1 << i;
-
         if (!(posedge_buttons & (1 << i))) continue;
 
-        if (con_state.macro_layer[i] > 0xbf) {
-            // Sequence macro
-
-            uint8_t idx = con_state.macro_layer[i] - 0xc0;
-            if (idx < 2) {
-                for (uint8_t j = 0; j < len(con_state.large_macros[idx].keys); j++) {
-                    if (!con_state.large_macros[idx].keys[j]) break;
-
-                    MiniKeyboard.press(con_state.large_macros[idx].keys[j]);
-                    MiniKeyboard.write();
-                    delay(con_state.large_macros[idx].delay);
-                    MiniKeyboard.release(con_state.large_macros[idx].keys[j]);
-                    MiniKeyboard.write();
-                    delay(con_state.large_macros[idx].delay);
-                }
-            } else if (idx < 6) {
-                idx -= 2;
-                for (uint8_t j = 0; j < len(con_state.short_macros[idx].keys); j++) {
-                    if (!con_state.short_macros[idx].keys[j]) break;
-
-                    MiniKeyboard.press(con_state.short_macros[idx].keys[j]);
-                    MiniKeyboard.write();
-                    delay(con_state.short_macros[idx].delay);
-                    MiniKeyboard.release(con_state.short_macros[idx].keys[j]);
-                    MiniKeyboard.write();
-                    delay(con_state.short_macros[idx].delay);
-                }
-            }
-        } else {
-            MiniKeyboard.press(con_state.macro_layer[i]);
-            MiniKeyboard.write();
-            delay(con_state.tiny_macro_speed);
-            MiniKeyboard.release(con_state.macro_layer[i]);
-            MiniKeyboard.write();
-        }
+        auto address = con_state.macros.macro_addresses[con_state.macro_layer[i] - 1];
+        start_macro(&(con_state.macros.data[address]));
     }
 
     // Decrease sens by a lot
     static uint8_t tick = 0;
     if ((++tick) == 10) {
         tick = 0;
-        if (analog_inputs[0].dir < 0) MiniConsumer.write(MEDIA_VOLUME_DOWN);
-        if (analog_inputs[0].dir > 0) MiniConsumer.write(MEDIA_VOLUME_UP);
+        if (analog_inputs[0].dir < 0) MiniConsumer.tap(MEDIA_VOLUME_DOWN);
+        if (analog_inputs[0].dir > 0) MiniConsumer.tap(MEDIA_VOLUME_UP);
     }
 
     static uint8_t tick2 = 0;
@@ -231,7 +202,7 @@ void handle_macro_keys() {
 }
 
 void setup() {
-    for (uint8_t i = 0; i < len(PinConf::buttons); i++) {
+    for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
         pinMode(PinConf::buttons[i].btn, INPUT_PULLUP);
         pinMode(PinConf::buttons[i].led, OUTPUT);
     }
@@ -263,7 +234,6 @@ void setup() {
 }
 
 void do_startup_mode_change() {
-    // We're not going to bother updating the LEDs, so just turn them off
     blank_led();
     FastLED.show();
 
@@ -272,6 +242,7 @@ void do_startup_mode_change() {
         read_buttons();
 
         button_leds = 0;
+        disable_led_modes = 1;
         handle_con_mode_buttons();
         blink++;
         if (blink & 8)
@@ -280,6 +251,7 @@ void do_startup_mode_change() {
             button_leds |= PinConf::START;
 
         write_button_leds();
+        do_leds();
         // We don't care about polling rate, so go with something more reasonable so the blink works
         delay(20);
 
@@ -290,51 +262,50 @@ void do_startup_mode_change() {
     }
 }
 
-void loop() {
-    static unsigned long last_leds = micros();
-
-    if (nvm_save_requested) {
-        if ((micros() - nvm_save_requested) > nvm_save_delay) {
-            // ! Performs write to flash
-            save_con_state();
-
-            nvm_save_requested = 0;
-        }
-    }
-
-    if (SerialUSB.available()) do_serial();
+void __attribute__((always_inline)) inline tick_read_inputs() {
     read_buttons();
-    if (!LEDTimeout()) do_button_leds();
     for (uint8_t i = 0; i < NUM_ANALOGS; i++) analog_inputs[i].tick();
-
-    if (started_with_start) {
-        if (!(buttons & PinConf::START))
-            started_with_start = false;
-        else if (millis() > 5000) {
-            do_startup_mode_change();
-        }
-
-        // Flash start to indicate something is going on. It's light from holding it, so we need to
-        // _un_ light it to make it flash.
-        if (millis() & 128) button_leds &= ~(PinConf::START);
-    }
-
-    handle_ex_buttons();
-    if (buttons & KeyMap::macro_key) {
-        handle_macro_keys();
-    }
-
     vol_x_dir_led = analog_inputs[0].dir;
     vol_y_dir_led = analog_inputs[1].dir;
     vol_x_dir = analog_inputs[0].dir;
     vol_y_dir = analog_inputs[1].dir;
-    // Reset for the next tick
-    analog_inputs[0].dir = analog_inputs[1].dir = 0;
+}
 
-    if (con_state.con_mode & CON_MODE_KEYBOARD) do_keyboard();
-    if (con_state.con_mode & CON_MODE_MOUSE) do_mouse();
-    if (con_state.con_mode & CON_MODE_GAMEPAD)
-        do_joystick(!!(con_state.con_mode & CON_MODE_GAMEPAD_POS));
+void __attribute__((always_inline)) inline tick_process_inputs() {
+    handle_ex_buttons();
+    tick_all_macros();
+    if (buttons & KeyMap::macro_key) {
+        handle_macro_keys();
+    } else {
+        if (con_state.con_mode & CON_MODE_KEYBOARD)
+            do_keyboard();
+        else
+            MiniKeyboard.releaseAll();
+        if (con_state.con_mode & CON_MODE_MOUSE) do_mouse();
+        if (con_state.con_mode & CON_MODE_GAMEPAD)
+            do_joystick(!!(con_state.con_mode & CON_MODE_GAMEPAD_POS));
+    }
+}
+
+void __attribute__((always_inline)) inline tick_write_usb() {
+    // These two can be changed for many reasons, and will only actually write if dirty
+    MiniMouse.write();
+    MiniGamepad.write();
+    MiniKeyboard.write();
+    MiniConsumer.write();
+
+    CustomHID().FlushReports();
+    // CustomHID_Lighting().FlushReports();
+
+    // We need to send something in response, but have nothing to send!
+    if (CustomHID().sent == 0 && hid_need_ack)
+        CustomHID().sent = 0;
+    else
+        CustomHID().sent = 0;
+}
+
+void __attribute__((always_inline)) inline tick_write_leds() {
+    static unsigned long last_leds = micros();
 
     write_button_leds();
 
@@ -344,4 +315,51 @@ void loop() {
         last_leds = micros();
         do_leds();
     }
+}
+
+void __attribute__((always_inline)) inline tick_startup_configuration() {
+    if (!(buttons & PinConf::START))
+        started_with_start = false;
+    else if (millis() > 5000) {
+        do_startup_mode_change();
+    }
+
+    // Flash start to indicate something is going on. It's light from holding it, so we need to
+    // _un_ light it to make it flash.
+    if (millis() & 128) button_leds &= ~(PinConf::START);
+}
+
+void loop() {
+    // Non-volatile storage
+    if (nvm_save_requested) {
+        if ((micros() - nvm_save_requested) > nvm_save_delay) {
+            // ! Performs write to flash
+            save_con_state();
+
+            nvm_save_requested = 0;
+        }
+    }
+
+    // Serial configuration and SAM-BA
+    if (SerialUSB.available()) tick_serial();
+
+    // Read inputs
+    tick_read_inputs();
+    // Other things might want to mess with button_leds aftwards, so do this first
+    do_button_leds();
+
+    // We're in configuration mode still, so act accordingly
+    if (started_with_start) tick_startup_configuration();
+
+    tick_process_inputs();
+
+    // Reset for the next tick
+    analog_inputs[0].dir = analog_inputs[1].dir = 0;
+
+    // Write out to USB
+    // TODO: some of the do_* functions do an immediate write.
+    // TODO: do we want to defer that to here for tidyness?
+    tick_write_usb();
+
+    tick_write_leds();
 }

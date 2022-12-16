@@ -42,8 +42,16 @@ MiniKeyboard_::MiniKeyboard_(void) {
     depressed = 0;
     dirty = false;
 }
-void MiniKeyboard_::SendReport(void* data, int length) {
-    CustomHID().SendReport(HID_REPORTID_MINI_KEYBOARD, data, length);
+int MiniKeyboard_::SendReport(void* data, int length) {
+    return CustomHID().SendReport(HID_REPORTID_MINI_KEYBOARD, data, length);
+}
+int MiniKeyboard_::write(void) {
+    if (dirty) {
+        dirty = false;
+        return SendReport(&report, sizeof(report));
+    }
+    dirty = false;
+    return 0;
 }
 
 void MiniKeyboard_::add_modifiers(uint8_t modifiers) {
@@ -53,22 +61,16 @@ void MiniKeyboard_::add_modifiers(uint8_t modifiers) {
     if (modifiers & (report.modifiers ^ modifiers)) {
         report.modifiers |= modifiers;
         dirty = true;
-        write();
     }
 }
 void MiniKeyboard_::remove_modifiers(uint8_t modifiers) {
-    bool local_dirty = false;
     for (uint8_t i = 0; i < 8; i++) {
         if (modifiers & (1 << i)) {
             if ((--modifier_count[i]) == 0) {
                 report.modifiers &= ~(1 << i);
-                local_dirty = true;
+                dirty = true;
             }
         }
-    }
-    if (local_dirty) {
-        dirty = true;
-        write();
     }
 }
 
@@ -107,6 +109,8 @@ void MiniKeyboard_::release(KeyboardKeycode key) {
     }
 };
 void MiniKeyboard_::releaseAll(void) {
+    if (!depressed && !report.modifiers) return;
+
     depressed = 0;
     report.modifiers = 0;
     memset(modifier_count, 0, sizeof modifier_count);
@@ -114,10 +118,6 @@ void MiniKeyboard_::releaseAll(void) {
     dirty = true;
 }
 
-void MiniKeyboard_::write(void) {
-    if (dirty) SendReport(&report, sizeof(report));
-    dirty = false;
-}
 void MiniKeyboard_::begin(void) { return; }
 
 MiniKeyboard_ MiniKeyboard;

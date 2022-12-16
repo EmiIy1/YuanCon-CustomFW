@@ -28,6 +28,17 @@ CustomHID_& CustomHID() {
     static CustomHID_ obj;
     return obj;
 }
+// CustomHID_& CustomHID_Lighting() {
+//     static CustomHID_ obj;
+//     return obj;
+// }
+
+typedef struct {
+    InterfaceDescriptor hid;
+    HIDDescDescriptor desc;
+    EndpointDescriptor in1;
+    // EndpointDescriptor in2;
+} HIDDescriptor_;
 
 int CustomHID_::getInterface(uint8_t* interfaceCount) {
     *interfaceCount += HID_INTERFACES;
@@ -36,12 +47,14 @@ int CustomHID_::getInterface(uint8_t* interfaceCount) {
     for (uint8_t interface = 0; interface < HID_INTERFACES; interface++) {
         interfaces[interface] = pluggedInterface + interface;
 
-        HIDDescriptor hidInterface = {
+        HIDDescriptor_ hidInterface = {
             D_INTERFACE(interfaces[interface], 1, USB_DEVICE_CLASS_HUMAN_INTERFACE,
                         HID_SUBCLASS_NONE, HID_PROTOCOL_NONE),
             D_HIDREPORT(descriptorSize[interface]),
             D_ENDPOINT(USB_ENDPOINT_IN(pluggedEndpoint + interface), USB_ENDPOINT_TYPE_INTERRUPT,
                        0x40, 0),
+            // D_ENDPOINT(USB_ENDPOINT_IN(pluggedEndpoint + interface), USB_ENDPOINT_TYPE_INTERRUPT,
+            //            0x40, 0),
         };
         sent += USBDevice.sendControl(&hidInterface, sizeof(hidInterface));
     }
@@ -176,10 +189,28 @@ void CustomHID_::AppendDescriptor(HIDSubDescriptor* node, uint8_t interface) {
 }
 
 int CustomHID_::SendReport(uint8_t id, const void* data, int len) {
+    // rep_buf[rep_len++] = id;
+    // memcpy(&(rep_buf[rep_len]), data, len);
+    // rep_len += len;
+    // return len + 1;
+
+    rep_len = 0;
+
     uint8_t p[64];
     p[0] = id;
     memcpy(&p[1], data, len);
-    return USBDevice.send(pluggedEndpoint, p, len + 1);
+    uint32_t sent = USBDevice.send(pluggedEndpoint, p, len + 1);
+    this->sent += sent;
+    return sent;
+}
+int CustomHID_::FlushReports(void) {
+    return 0;
+    // if (!rep_len) return 0;
+    // int len = rep_len;
+    // rep_len = 0;
+    // uint32_t sent = USBDevice.send(pluggedEndpoint, rep_buf, len);
+    // this->sent += sent;
+    // return sent;
 }
 
 bool CustomHID_::setup(USBSetup& setup) {
@@ -223,6 +254,7 @@ setup_noreturn:
                 HIDCallback* current = rootCallback[interface];
                 while (current) {
                     if (current->report_id == setup.wValueL) {
+                        USBDevice.armSend(EP0, NULL, 0);
                         return current->callback(setup.wLength);
                     }
 
@@ -243,6 +275,8 @@ CustomHID_::CustomHID_(void)
       protocol(1),
       idle(1) {
     epType[0] = USB_ENDPOINT_TYPE_INTERRUPT | USB_ENDPOINT_IN(0);
+    // pluggedInterface = pluggedInterface;
+    // pluggedEndpoint = pluggedEndpoint;
     PluggableUSB().plug(this);
 }
 

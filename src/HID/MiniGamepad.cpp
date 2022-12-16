@@ -97,18 +97,19 @@ MiniGamepad_::MiniGamepad_(void) {
     report.vol_x = report.vol_y = report.buttons = 0;
     last_report.vol_x = last_report.vol_y = last_report.buttons = 0;
 }
-void MiniGamepad_::SendReport(void* data, int length) {
-    CustomHID().SendReport(HID_REPORTID_MINI_GAMEPAD, data, length);
+int MiniGamepad_::SendReport(void* data, int length) {
+    return CustomHID().SendReport(HID_REPORTID_MINI_GAMEPAD, data, length);
 }
-void MiniGamepad_::write(void) {
+int MiniGamepad_::write(void) {
     if (last_report.vol_x != report.vol_x || last_report.vol_y != report.vol_y ||
         last_report.buttons != report.buttons) {
-        SendReport(&report, sizeof(report));
-
         last_report.buttons = report.buttons;
         last_report.vol_x = report.vol_x;
         last_report.vol_y = report.vol_y;
+
+        return SendReport(&report, sizeof(report));
     }
+    return 0;
 }
 void MiniGamepad_::begin(void) { return; }
 

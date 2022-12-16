@@ -1,6 +1,8 @@
 #pragma once
 #include <vendor.h>
 
+#include "../config.def"
+
 #define len(x) (sizeof(x) / sizeof(x)[0])
 
 namespace PinConf {
@@ -35,7 +37,9 @@ constexpr uint16_t EX_1 = 128;
 constexpr uint16_t EX_2 = 256;
 constexpr uint16_t EX_3 = 512;
 
-constexpr button_pins_t buttons[] = { bt_a, bt_b, bt_c, bt_d, fx_l, fx_r, start, ex_1, ex_2, ex_3 };
+constexpr button_pins_t buttons[NUM_BUTTONS] = {
+    bt_a, bt_b, bt_c, bt_d, fx_l, fx_r, start, ex_1, ex_2, ex_3,
+};
 
 typedef struct {
     pin_size_t g1;

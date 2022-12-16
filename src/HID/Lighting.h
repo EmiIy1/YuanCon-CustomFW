@@ -19,7 +19,7 @@ typedef union {
 constexpr uint8_t NUMBER_OF_SINGLE = 7;
 constexpr uint8_t NUMBER_OF_RGB = 6;
 
-extern bool hid_dirty;
+extern bool hid_need_ack;
 extern unsigned long last_hid;
 constexpr unsigned long AUTO_HID_TIMEOUT = 3000;  // 3 seconds
 
@@ -41,6 +41,20 @@ typedef struct {
     };
 } HID_LedsReport_Data_t;
 extern HID_LedsReport_Data_t hid_led_data;
+
+constexpr uint8_t PicoNoSingle = 7;
+constexpr uint8_t PicoNoRGB = 2;
+constexpr uint8_t PicoNoLED = PicoNoSingle + (PicoNoRGB * 3);
+typedef struct {
+    uint8_t report_id;
+    union {
+        struct {
+            SingleLED singles[PicoNoSingle];
+            RGBLed rgb[PicoNoRGB];
+        } leds;
+        uint8_t raw[PicoNoLED];
+    };
+} HID_PicoLedsReport_Data_t;
 
 class HIDLeds_ {
    public:

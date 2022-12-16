@@ -1,4 +1,5 @@
 #include "persist.h"
+#include "macro.h"
 
 #define FLASH_DEBUG 0
 #include <FlashStorage_SAMD.h>
@@ -33,21 +34,29 @@ const persistent_data_t default_con_state {
         led_zone_mode_rainbow,
         led_zone_mode_rainbow,
     },
+    .minty_config = {
+        .mask = 0,
+        .rainbow_on = 0,
+        .rainbow_off = 0,
+        .colours_on = {
+            // BT
+            CRGB(0, 0, 255),
+            CRGB(0, 0, 255),
+            CRGB(0, 0, 255),
+            CRGB(0, 0, 255),
+            // FX
+            CRGB(255, 0, 63),
+            CRGB(255, 0, 63),
+            // Start
+            CRGB(0, 0, 255),
+            // Ex
+            CRGB(255, 255, 255),
+            CRGB(255, 255, 255),
+            CRGB(255, 255, 255),
+         },
+        .colours_off = { 0 },
+    },
 
-    // Up to 32 characters
-    .large_macros = {
-        { 0, { 0 } },
-        { 0, { 0 } },
-    },
-    // Up to 10 characters
-    .short_macros = {
-        { 0, { 0 } },
-        { 0, { 0 } },
-        { 0, { 0 } },
-        { 0, { 0 } },
-    },
-    // Single character (typed with a tiny_macro_speed delay), or a sequence macro from above
-    .tiny_macro_speed = 50,
     .macro_layer = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     },
@@ -56,7 +65,6 @@ const persistent_data_t default_con_state {
     .led_timeout = 60 * 15,  // Turn off after 15 minutes
     .led_brightness = 127,
     //
-    .num_analogs = NUM_ANALOGS,
     .analogs = {
         {
             .deadzone = 0,
@@ -68,7 +76,12 @@ const persistent_data_t default_con_state {
             .deadzone_bounceback = 0,
             .bounceback_timer = 500,
         },
-    }
+    },
+
+    .macros = {
+        .macro_addresses = { 0 },
+        .data = { (uint8_t)MacroOp::END },
+    },
 };
 persistent_data_t con_state = default_con_state;
 
